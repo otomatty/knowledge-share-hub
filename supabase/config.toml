@@ -1,0 +1,13 @@
+[project]
+id = "iminqodcmnqvavqrudvy"
+
+[auth]
+site_url = "http://localhost:8080"
+additional_redirect_urls = ["https://localhost:8080"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
