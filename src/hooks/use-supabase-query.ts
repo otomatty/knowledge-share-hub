@@ -210,6 +210,14 @@ export function useToggleReaction() {
       queryClient.invalidateQueries({
         queryKey: ["reactions", variables.contentType, variables.contentId],
       });
+      queryClient.invalidateQueries({
+        queryKey: [
+          "user-reactions",
+          variables.userId,
+          variables.contentType,
+          variables.contentId,
+        ],
+      });
     },
   });
 }
@@ -231,7 +239,13 @@ export function useCreateComment() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({
-        queryKey: ["comments", data.content_type, data.content_id],
+        queryKey: ["comments", "thread", data.content_type, data.content_id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["articles", "domain", data.content_id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["memos", "domain", data.content_id],
       });
     },
   });
@@ -264,5 +278,23 @@ export function useNotifications(userId: string) {
       return data;
     },
     enabled: !!userId,
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("user_id", userId)
+        .eq("is_read", false);
+      if (error) throw error;
+    },
+    onSuccess: (_, userId) => {
+      queryClient.invalidateQueries({ queryKey: ["notifications", userId] });
+    },
   });
 }

@@ -1,17 +1,41 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { REACTION_CONFIG, type ReactionSummary, type ReactionType } from '@/types';
 
 interface ReactionButtonsProps {
   reactions: ReactionSummary;
   size?: 'sm' | 'default';
+  /** When set, buttons reflect server state and call onToggle instead of local-only demo mode. */
+  activeTypes?: Set<ReactionType>;
+  onToggle?: (type: ReactionType) => void;
+  disabled?: boolean;
 }
 
-export function ReactionButtons({ reactions, size = 'default' }: ReactionButtonsProps) {
+export function ReactionButtons({
+  reactions,
+  size = 'default',
+  activeTypes,
+  onToggle,
+  disabled = false,
+}: ReactionButtonsProps) {
   const [localReactions, setLocalReactions] = useState(reactions);
   const [activeReactions, setActiveReactions] = useState<Set<ReactionType>>(new Set());
 
+  useEffect(() => {
+    setLocalReactions(reactions);
+  }, [reactions]);
+
+  useEffect(() => {
+    if (activeTypes !== undefined) {
+      setActiveReactions(new Set(activeTypes));
+    }
+  }, [activeTypes]);
+
   const toggle = (type: ReactionType) => {
+    if (onToggle) {
+      onToggle(type);
+      return;
+    }
     const next = new Set(activeReactions);
     if (next.has(type)) {
       next.delete(type);
@@ -35,6 +59,7 @@ export function ReactionButtons({ reactions, size = 'default' }: ReactionButtons
             key={type}
             variant={active ? 'default' : 'outline'}
             size="sm"
+            disabled={disabled}
             className={`gap-1 ${isSmall ? 'h-7 text-xs px-2' : 'h-8 text-sm px-3'} ${active ? '' : 'hover:bg-primary/5 hover:border-primary/30'}`}
             onClick={() => toggle(type)}
             title={config.label}

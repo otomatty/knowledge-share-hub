@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -27,24 +28,26 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/tips" element={<TipsList />} />
-          <Route path="/tips/new" element={<TipNew />} />
-          <Route path="/articles/new" element={<ArticleNew />} />
-          <Route path="/articles/:id" element={<ArticleDetail />} />
-          <Route path="/articles/:id/edit" element={<ArticleEdit />} />
-          <Route path="/memos/new" element={<MemoNew />} />
-          <Route path="/memos/:id" element={<MemoDetail />} />
-          <Route path="/books/new" element={<BookNew />} />
-          <Route path="/books/:id" element={<BookDetail />} />
-          <Route path="/settings/profile" element={<ProfileSettings />} />
-          <Route path="/users/:username" element={<UserProfile />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="*" element={<NotFound />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Index />} />
+            <Route path="/tips" element={<TipsList />} />
+            <Route path="/tips/new" element={<TipNew />} />
+            <Route path="/articles/new" element={<ArticleNew />} />
+            <Route path="/articles/:id" element={<ArticleDetail />} />
+            <Route path="/articles/:id/edit" element={<ArticleEdit />} />
+            <Route path="/memos/new" element={<MemoNew />} />
+            <Route path="/memos/:id" element={<MemoDetail />} />
+            <Route path="/books/new" element={<BookNew />} />
+            <Route path="/books/:id" element={<BookDetail />} />
+            <Route path="/settings/profile" element={<ProfileSettings />} />
+            <Route path="/users/:username" element={<UserProfile />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

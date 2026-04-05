@@ -1,18 +1,41 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const location = useLocation();
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const from =
+    (location.state as { from?: { pathname: string } } | null)?.from?.pathname ??
+    "/";
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/');
+    setSubmitting(true);
+    const { error } = await signIn(email, password);
+    setSubmitting(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    navigate(from, { replace: true });
   };
 
   return (
@@ -27,17 +50,38 @@ export default function Login() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">メールアドレス</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                autoComplete="email"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">パスワード</Label>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+              />
             </div>
           </CardContent>
           <CardFooter className="flex-col gap-3">
-            <Button type="submit" className="w-full">ログイン</Button>
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? "ログイン中…" : "ログイン"}
+            </Button>
             <p className="text-sm text-muted-foreground">
-              アカウントをお持ちでない方は <Link to="/signup" className="text-primary hover:underline">新規登録</Link>
+              アカウントをお持ちでない方は{" "}
+              <Link to="/signup" className="text-primary hover:underline">
+                新規登録
+              </Link>
             </p>
           </CardFooter>
         </form>
