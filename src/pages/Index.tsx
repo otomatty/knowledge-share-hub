@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { ContentCard } from '@/components/shared/ContentCard';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { mockTips, mockMemos, mockArticles } from '@/lib/mock-data';
+import { ZennArticleCard } from '@/components/shared/ZennArticleCard';
+import { ZennBookCard } from '@/components/shared/ZennBookCard';
+import { TipsDialog } from '@/components/shared/TipsDialog';
+import { ChevronRight, MessageSquarePlus } from 'lucide-react';
+import { mockTips, mockMemos, mockArticles, mockBooks } from '@/lib/mock-data';
 import type { FeedItem } from '@/types';
 
 const allFeedItems: FeedItem[] = [
@@ -19,48 +22,104 @@ const trendItems = [...allFeedItems].sort((a, b) => {
   return (scoreB / Math.pow(ageB + 2, 1.5)) - (scoreA / Math.pow(ageA + 2, 1.5));
 });
 
-export default function Index() {
-  const [tab, setTab] = useState('trend');
+function SectionHeader({ title, tooltip }: { title: string; tooltip?: string }) {
+  return (
+    <div className="mb-4">
+      <div className="flex items-center gap-2">
+        <h2 className="text-2xl font-bold">{title}</h2>
+        {tooltip && (
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{tooltip}</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
-  const getItems = () => {
-    switch (tab) {
-      case 'trend': return trendItems;
-      case 'new': return allFeedItems;
-      case 'tips': return allFeedItems.filter(i => i.type === 'tip');
-      case 'memos': return allFeedItems.filter(i => i.type === 'memo');
-      case 'articles': return allFeedItems.filter(i => i.type === 'article');
-      default: return allFeedItems;
-    }
-  };
+function SectionFooter({ linkTo, linkLabel }: { linkTo: string; linkLabel: string }) {
+  return (
+    <div className="mt-6 text-center">
+      <Link
+        to={linkTo}
+        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+      >
+        {linkLabel}
+        <ChevronRight className="h-4 w-4" />
+      </Link>
+    </div>
+  );
+}
+
+function ArticleGrid({ items }: { items: FeedItem[] }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+      {items.map(item => (
+        <div key={`${item.type}-${item.data.id}`} className="border-b last:border-b-0">
+          <ZennArticleCard type={item.type} data={item.data} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Index() {
+  const [tipDialogOpen, setTipDialogOpen] = useState(false);
+
+  const tipItems = allFeedItems.filter(i => i.type === 'tip');
+  const articleItems = allFeedItems.filter(i => i.type === 'article');
+  const memoItems = allFeedItems.filter(i => i.type === 'memo');
 
   return (
-    <MainLayout>
-      <div>
-        <h1 className="text-2xl font-bold mb-4">フィード</h1>
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="trend">🔥 トレンド</TabsTrigger>
-            <TabsTrigger value="new">🆕 新着</TabsTrigger>
-            <TabsTrigger value="tips">💬 Tips</TabsTrigger>
-            <TabsTrigger value="memos">📝 メモ</TabsTrigger>
-            <TabsTrigger value="articles">📄 記事</TabsTrigger>
-          </TabsList>
-          <TabsContent value={tab}>
-            <div className="bg-card rounded-lg border">
-              <div className="divide-y">
-                {getItems().map(item => (
-                  <div key={`${item.type}-${item.data.id}`} className="px-4">
-                    <ContentCard type={item.type} data={item.data} />
-                  </div>
-                ))}
-              </div>
-              {getItems().length === 0 && (
-                <p className="text-center text-muted-foreground py-12">まだ投稿がありません</p>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+    <MainLayout showSidebar={false}>
+      {/* Tips section */}
+      <section className="mb-12">
+        <SectionHeader title="Tips" tooltip="ひとこと知見の共有" />
+        <ArticleGrid items={tipItems} />
+        <SectionFooter linkTo="/tips" linkLabel="Tipsをもっと見る" />
+      </section>
+
+      {/* Articles section */}
+      <section className="mb-12">
+        <SectionHeader title="Articles" tooltip="技術記事" />
+        <ArticleGrid items={articleItems} />
+        <SectionFooter linkTo="/search?type=article" linkLabel="記事をもっと見る" />
+      </section>
+
+      {/* Books section - horizontal scroll */}
+      {mockBooks.length > 0 && (
+        <section className="mb-12">
+          <SectionHeader title="Books" />
+          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
+            {mockBooks.map(book => (
+              <ZennBookCard key={book.id} book={book} />
+            ))}
+          </div>
+          <SectionFooter linkTo="/search?type=book" linkLabel="ブックストアで本を探す" />
+        </section>
+      )}
+
+      {/* Memos section */}
+      <section className="mb-12">
+        <SectionHeader title="Memos" tooltip="学習・調査メモ" />
+        <ArticleGrid items={memoItems} />
+        <SectionFooter linkTo="/search?type=memo" linkLabel="メモをもっと見る" />
+      </section>
+
+      {/* Featured / Trending section */}
+      <section className="mb-12">
+        <SectionHeader title="Featured" />
+        <ArticleGrid items={trendItems.slice(0, 10)} />
+        <SectionFooter linkTo="/search" linkLabel="トレンドをもっと見る" />
+      </section>
+
+      {/* Tips FAB + Dialog */}
+      <button
+        onClick={() => setTipDialogOpen(true)}
+        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors flex items-center justify-center"
+        aria-label="Tipsを投稿"
+      >
+        <MessageSquarePlus className="h-6 w-6" />
+      </button>
+      <TipsDialog open={tipDialogOpen} onOpenChange={setTipDialogOpen} />
     </MainLayout>
   );
 }
