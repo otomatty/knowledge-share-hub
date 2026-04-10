@@ -13,6 +13,45 @@ export type Database = {
         Row: {
           id: string;
           email: string;
+          display_name: string | null;
+          created_at: string;
+          avatar_url: string | null;
+          department: string | null;
+          updated_at: string;
+          employee_id: string | null;
+        };
+        Insert: {
+          id: string;
+          email: string;
+          display_name?: string | null;
+          created_at?: string;
+          avatar_url?: string | null;
+          department?: string | null;
+          updated_at?: string;
+          employee_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          display_name?: string | null;
+          created_at?: string;
+          avatar_url?: string | null;
+          department?: string | null;
+          updated_at?: string;
+          employee_id?: string | null;
+        };
+      };
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+  };
+  knowledge_share_hub: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          email: string;
           username: string;
           display_name: string;
           avatar_url: string | null;
@@ -21,6 +60,7 @@ export type Database = {
           skill_tags: string[];
           role: "admin" | "user";
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id: string;
@@ -33,6 +73,7 @@ export type Database = {
           skill_tags?: string[];
           role?: "admin" | "user";
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -45,6 +86,7 @@ export type Database = {
           skill_tags?: string[];
           role?: "admin" | "user";
           created_at?: string;
+          updated_at?: string;
         };
       };
       tags: {

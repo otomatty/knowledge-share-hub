@@ -11,18 +11,6 @@ import { useState } from "react";
 export default function AdminPage() {
   const [tab, setTab] = useState("users");
 
-  const usersQ = useQuery({
-    queryKey: ["profiles", "all"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
   const tagsQ = useQuery({
     queryKey: ["tags", "all"],
     queryFn: async () => {
@@ -30,6 +18,18 @@ export default function AdminPage() {
         .from("tags")
         .select("*")
         .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const usersQ = useQuery({
+    queryKey: ["profiles", "all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },

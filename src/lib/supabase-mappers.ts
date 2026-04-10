@@ -12,35 +12,38 @@ import type {
 import { profileToUser } from "@/lib/profile-mapper";
 import type { ReactionSummary } from "@/types";
 
-type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type Profile = Database["knowledge_share_hub"]["Tables"]["profiles"]["Row"];
 
-export type TipWithJoins = Database["public"]["Tables"]["tips"]["Row"] & {
+export type TipWithJoins = Database["knowledge_share_hub"]["Tables"]["tips"]["Row"] & {
   author: Profile;
-  tip_tags: { tag: Database["public"]["Tables"]["tags"]["Row"] }[] | null;
+  tip_tags: { tag: Database["knowledge_share_hub"]["Tables"]["tags"]["Row"] }[] | null;
 };
 
-export type ArticleWithJoins = Database["public"]["Tables"]["articles"]["Row"] & {
+export type ArticleWithJoins = Database["knowledge_share_hub"]["Tables"]["articles"]["Row"] & {
   author: Profile;
-  article_tags: { tag: Database["public"]["Tables"]["tags"]["Row"] }[] | null;
+  article_tags: { tag: Database["knowledge_share_hub"]["Tables"]["tags"]["Row"] }[] | null;
 };
 
-export type MemoWithJoins = Database["public"]["Tables"]["memos"]["Row"] & {
+export type MemoWithJoins = Database["knowledge_share_hub"]["Tables"]["memos"]["Row"] & {
   author: Profile;
-  memo_tags: { tag: Database["public"]["Tables"]["tags"]["Row"] }[] | null;
-  memo_entries: Database["public"]["Tables"]["memo_entries"]["Row"][] | null;
+  memo_tags: { tag: Database["knowledge_share_hub"]["Tables"]["tags"]["Row"] }[] | null;
+  memo_entries: Database["knowledge_share_hub"]["Tables"]["memo_entries"]["Row"][] | null;
 };
 
-export type BookWithJoins = Database["public"]["Tables"]["books"]["Row"] & {
+export type BookWithJoins = Database["knowledge_share_hub"]["Tables"]["books"]["Row"] & {
   author: Profile;
   book_chapters:
-    | (Database["public"]["Tables"]["book_chapters"]["Row"] & {
+    | (Database["knowledge_share_hub"]["Tables"]["book_chapters"]["Row"] & {
         article: ArticleWithJoins | null;
       })[]
     | null;
 };
 
 function tagsFromJoins(
-  rows: { tag: Database["public"]["Tables"]["tags"]["Row"] }[] | null | undefined,
+  rows:
+    | { tag: Database["knowledge_share_hub"]["Tables"]["tags"]["Row"] }[]
+    | null
+    | undefined,
 ): Tag[] {
   if (!rows) return [];
   return rows.map((r) => ({
@@ -154,7 +157,7 @@ export function mapBookRow(row: BookWithJoins, reactionsByArticleId: Record<stri
   };
 }
 
-export type CommentWithAuthor = Database["public"]["Tables"]["comments"]["Row"] & {
+export type CommentWithAuthor = Database["knowledge_share_hub"]["Tables"]["comments"]["Row"] & {
   author: Profile;
 };
 

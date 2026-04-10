@@ -1,7 +1,7 @@
 import type { Database } from "@/integrations/supabase/types";
 import type { User } from "@/types";
 
-type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type ProfileRow = Database["knowledge_share_hub"]["Tables"]["profiles"]["Row"];
 
 export function profileToUser(row: ProfileRow): User {
   return {

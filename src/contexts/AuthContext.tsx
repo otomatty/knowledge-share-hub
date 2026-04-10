@@ -10,7 +10,7 @@ import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/integrations/supabase/types";
 
-type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type Profile = Database["knowledge_share_hub"]["Tables"]["profiles"]["Row"];
 
 interface AuthContextValue {
   user: User | null;

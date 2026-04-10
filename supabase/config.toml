@@ -1,5 +1,9 @@
 [project]
-id = "iminqodcmnqvavqrudvy"
+id = "tpfapoyqovljtkzxbykd"
+
+[api]
+schemas = ["public", "knowledge_share_hub", "storage", "graphql_public"]
+extra_search_path = ["public", "knowledge_share_hub", "extensions"]
 
 [auth]
 site_url = "http://localhost:8080"

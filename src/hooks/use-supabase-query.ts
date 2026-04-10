@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/integrations/supabase/types";
 
-type Tables = Database["public"]["Tables"];
+type Tables = Database["knowledge_share_hub"]["Tables"];
 
 export function useTips() {
   return useQuery({
