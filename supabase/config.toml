@@ -7,7 +7,11 @@ extra_search_path = ["public", "knowledge_share_hub", "extensions"]
 
 [auth]
 site_url = "http://localhost:8080"
-additional_redirect_urls = ["https://localhost:8080"]
+additional_redirect_urls = [
+  "http://localhost:8080/auth/callback",
+  "http://localhost:3000/auth/callback",
+  "http://localhost:5173/auth/callback",
+]
 jwt_expiry = 3600
 enable_signup = true
 
