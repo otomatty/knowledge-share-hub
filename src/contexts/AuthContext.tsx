@@ -17,15 +17,8 @@ interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (
-    email: string,
-    password: string,
-    metadata: { username: string; display_name: string },
-  ) => Promise<{ error: Error | null }>;
-  signIn: (
-    email: string,
-    password: string,
-  ) => Promise<{ error: Error | null }>;
+  signInWithMagicLink: (email: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -79,23 +72,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
-  const signUp = async (
-    email: string,
-    password: string,
-    metadata: { username: string; display_name: string },
-  ) => {
-    const { error } = await supabase.auth.signUp({
+  const signInWithMagicLink = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password,
-      options: { data: metadata },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     return { error };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     return { error };
   };
@@ -111,8 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         loading,
-        signUp,
-        signIn,
+        signInWithMagicLink,
+        signInWithGoogle,
         signOut,
         refreshProfile,
       }}
