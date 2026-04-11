@@ -1,7 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import { readFileSync } from "node:fs";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+
+const packageJson = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
+) as { version: string };
 
 export default defineConfig(({ mode }) => ({
   cacheDir: "node_modules/.vite-knowledgehub",
@@ -27,5 +32,8 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     force: true,
     include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"],
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
   },
 }));

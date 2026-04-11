@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AuthVersionBadge } from "@/components/auth/AuthVersionBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -40,6 +41,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <AuthVersionBadge />
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="text-3xl mb-2">📚</div>
