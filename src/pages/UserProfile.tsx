@@ -24,14 +24,8 @@ export default function UserProfile() {
     );
   }, [userId, tipsQ.data]);
 
-  if (profileQ.isLoading || tipsQ.isLoading) {
-    return (
-      <MainLayout>
-        <p className="text-muted-foreground py-12">読み込み中…</p>
-      </MainLayout>
-    );
-  }
-
+  // Check errors before loading so that an error in one query isn't
+  // masked by the other query still being in flight.
   if (profileQ.isError) {
     return (
       <MainLayout>
@@ -42,20 +36,28 @@ export default function UserProfile() {
     );
   }
 
-  if (!user) {
-    return (
-      <MainLayout>
-        <p className="text-muted-foreground py-12">ユーザーが見つかりません</p>
-      </MainLayout>
-    );
-  }
-
   if (tipsQ.isError) {
     return (
       <MainLayout>
         <p className="text-destructive py-12">
           気づきの読み込みに失敗しました。時間をおいて再度お試しください。
         </p>
+      </MainLayout>
+    );
+  }
+
+  if (profileQ.isLoading || tipsQ.isLoading) {
+    return (
+      <MainLayout>
+        <p className="text-muted-foreground py-12">読み込み中…</p>
+      </MainLayout>
+    );
+  }
+
+  if (!user) {
+    return (
+      <MainLayout>
+        <p className="text-muted-foreground py-12">ユーザーが見つかりません</p>
       </MainLayout>
     );
   }
