@@ -24,8 +24,8 @@ export default function UserProfile() {
     );
   }, [userId, tipsQ.data]);
 
-  // Check errors before loading so that an error in one query isn't
-  // masked by the other query still being in flight.
+  // Only profileQ guards the entire page render; tipsQ is scoped to the
+  // tips section below so a tips failure doesn't blank out the profile.
   if (profileQ.isError) {
     return (
       <MainLayout>
@@ -36,17 +36,7 @@ export default function UserProfile() {
     );
   }
 
-  if (tipsQ.isError) {
-    return (
-      <MainLayout>
-        <p className="text-destructive py-12">
-          気づきの読み込みに失敗しました。時間をおいて再度お試しください。
-        </p>
-      </MainLayout>
-    );
-  }
-
-  if (profileQ.isLoading || tipsQ.isLoading) {
+  if (profileQ.isLoading) {
     return (
       <MainLayout>
         <p className="text-muted-foreground py-12">読み込み中…</p>
@@ -93,9 +83,15 @@ export default function UserProfile() {
         </div>
 
         <h2 className="text-lg font-semibold mb-3">
-          💬 気づき ({userTips.length})
+          💬 気づき{!tipsQ.isLoading && !tipsQ.isError ? ` (${userTips.length})` : ""}
         </h2>
-        {userTips.length === 0 ? (
+        {tipsQ.isLoading ? (
+          <p className="text-muted-foreground py-8">気づきを読み込み中…</p>
+        ) : tipsQ.isError ? (
+          <p className="text-destructive py-8">
+            気づきの読み込みに失敗しました。時間をおいて再度お試しください。
+          </p>
+        ) : userTips.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">
             まだ気づきがありません
           </p>
