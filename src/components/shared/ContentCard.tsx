@@ -17,7 +17,7 @@ export function ContentCard({ data }: ContentCardProps) {
   const timeAgo = formatDistanceToNow(new Date(data.created_at), { locale: ja, addSuffix: true });
 
   return (
-    <div className="border-b py-4 last:border-b-0">
+    <div className="py-4">
       {/* Author row */}
       <div className="flex items-center gap-2 mb-2">
         <Avatar className="h-7 w-7">

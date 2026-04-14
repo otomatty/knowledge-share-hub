@@ -8,6 +8,8 @@
 --   4. Rebuilds the content_type enum to only contain 'tip'.
 --   5. Allows comments on tips, and adds a 'tip' label to the comments
 --      check constraint (previously only memo/article were allowed).
+--   6. Enforces the 140-character tip limit at the DB level so the same
+--      ceiling applies to writes that bypass the UI.
 
 -- 1. Drop tables. CASCADE handles join tables (article_tags, memo_tags,
 -- memo_entries, book_chapters) and any RLS policies attached to them.
@@ -65,3 +67,12 @@ alter table knowledge_share_hub.notifications
 -- the enum in sync with the application's TS types.
 drop type if exists knowledge_share_hub.content_type;
 create type knowledge_share_hub.content_type as enum ('tip');
+
+-- 5. Enforce the tip character limit at the DB level. The UI truncates at
+-- 140 characters; this matches the ceiling for direct API / dashboard
+-- writes so the limit can't be bypassed by non-UI callers.
+alter table knowledge_share_hub.tips
+  drop constraint if exists tips_content_length_check;
+alter table knowledge_share_hub.tips
+  add constraint tips_content_length_check
+  check (char_length(content) <= 140);

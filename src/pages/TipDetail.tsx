@@ -20,7 +20,17 @@ export default function TipDetail() {
     );
   }
 
-  if (isError || !tip) {
+  if (isError) {
+    return (
+      <MainLayout>
+        <p className="text-destructive py-12">
+          気づきの読み込みに失敗しました。時間をおいて再度お試しください。
+        </p>
+      </MainLayout>
+    );
+  }
+
+  if (!tip) {
     return (
       <MainLayout>
         <p className="text-muted-foreground py-12">気づきが見つかりません</p>

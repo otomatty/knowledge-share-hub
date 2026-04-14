@@ -32,7 +32,17 @@ export default function UserProfile() {
     );
   }
 
-  if (profileQ.isError || !user) {
+  if (profileQ.isError) {
+    return (
+      <MainLayout>
+        <p className="text-destructive py-12">
+          プロフィールの読み込みに失敗しました。時間をおいて再度お試しください。
+        </p>
+      </MainLayout>
+    );
+  }
+
+  if (!user) {
     return (
       <MainLayout>
         <p className="text-muted-foreground py-12">ユーザーが見つかりません</p>
