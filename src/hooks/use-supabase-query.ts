@@ -21,111 +21,6 @@ export function useTips() {
   });
 }
 
-export function useArticles() {
-  return useQuery({
-    queryKey: ["articles"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("articles")
-        .select(
-          `*, author:profiles!articles_author_id_fkey(*), article_tags(tag:tags(*))`,
-        )
-        .eq("status", "published")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-}
-
-export function useArticle(id: string) {
-  return useQuery({
-    queryKey: ["articles", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("articles")
-        .select(
-          `*, author:profiles!articles_author_id_fkey(*), article_tags(tag:tags(*))`,
-        )
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-}
-
-export function useMemos() {
-  return useQuery({
-    queryKey: ["memos"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("memos")
-        .select(
-          `*, author:profiles!memos_author_id_fkey(*), memo_tags(tag:tags(*)), memo_entries(*)`,
-        )
-        .eq("status", "published")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-}
-
-export function useMemo(id: string) {
-  return useQuery({
-    queryKey: ["memos", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("memos")
-        .select(
-          `*, author:profiles!memos_author_id_fkey(*), memo_tags(tag:tags(*)), memo_entries(*)`,
-        )
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-}
-
-export function useBooks() {
-  return useQuery({
-    queryKey: ["books"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("books")
-        .select(
-          `*, author:profiles!books_author_id_fkey(*), book_chapters(*, article:articles(*))`,
-        )
-        .eq("status", "published")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-}
-
-export function useBook(id: string) {
-  return useQuery({
-    queryKey: ["books", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("books")
-        .select(
-          `*, author:profiles!books_author_id_fkey(*), book_chapters(*, article:articles(*, author:profiles!articles_author_id_fkey(*)))`,
-        )
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-}
-
 export function useComments(contentType: string, contentId: string) {
   return useQuery({
     queryKey: ["comments", contentType, contentId],
@@ -242,10 +137,10 @@ export function useCreateComment() {
         queryKey: ["comments", "thread", data.content_type, data.content_id],
       });
       queryClient.invalidateQueries({
-        queryKey: ["articles", "domain", data.content_id],
+        queryKey: ["tips", "domain", data.content_id],
       });
       queryClient.invalidateQueries({
-        queryKey: ["memos", "domain", data.content_id],
+        queryKey: ["tips", "domain"],
       });
     },
   });

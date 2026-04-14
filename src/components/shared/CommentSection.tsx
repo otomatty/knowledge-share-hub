@@ -13,7 +13,7 @@ import { MessageSquare, CornerDownRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface CommentSectionProps {
-  contentType: "memo" | "article";
+  contentType: "tip";
   contentId: string;
 }
 
@@ -26,7 +26,7 @@ function CommentItem({
 }: {
   comment: Comment;
   isReply?: boolean;
-  contentType: "memo" | "article";
+  contentType: "tip";
   contentId: string;
   onReply: (parentId: string, html: string) => void;
 }) {
@@ -62,7 +62,7 @@ function CommentItem({
             className="h-7 text-xs gap-1 text-muted-foreground"
             onClick={() => setShowReplyEditor(!showReplyEditor)}
           >
-            <CornerDownRight className="h-3 w-3" /> 返信
+            <CornerDownRight className="h-3 w-3" /> 気づきを返す
           </Button>
         )}
       </div>
@@ -71,7 +71,7 @@ function CommentItem({
           <TiptapEditor
             content={replyContent}
             onChange={setReplyContent}
-            placeholder="返信を入力..."
+            placeholder="この気づきを読んで、自分は何に気づいた？"
             minimal
           />
           <div className="flex gap-2">
@@ -83,7 +83,7 @@ function CommentItem({
                 setShowReplyEditor(false);
               }}
             >
-              返信する
+              気づきを返す
             </Button>
             <Button
               size="sm"
@@ -155,8 +155,11 @@ export function CommentSection({ contentType, contentId }: CommentSectionProps) 
     <div className="space-y-6">
       <h3 className="flex items-center gap-2 font-semibold">
         <MessageSquare className="h-5 w-5" />
-        コメント ({isLoading ? "…" : totalCount(comments)})
+        気づき返し ({isLoading ? "…" : totalCount(comments)})
       </h3>
+      <p className="text-xs text-muted-foreground -mt-4">
+        この気づきを読んで、あなたが気づいたことを返してみよう
+      </p>
 
       <div className="space-y-2">
         <div className="flex items-center gap-2 mb-2">
@@ -172,7 +175,7 @@ export function CommentSection({ contentType, contentId }: CommentSectionProps) 
         <TiptapEditor
           content={newComment}
           onChange={setNewComment}
-          placeholder="コメントを入力..."
+          placeholder="この気づきを読んで、自分は何に気づいた？"
           minimal
         />
         <Button
@@ -180,7 +183,7 @@ export function CommentSection({ contentType, contentId }: CommentSectionProps) 
           disabled={!profile || createComment.isPending}
           onClick={() => submit(newComment)}
         >
-          コメントする
+          気づきを返す
         </Button>
       </div>
 

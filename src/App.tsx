@@ -7,14 +7,8 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import TipNew from "./pages/TipNew";
+import TipDetail from "./pages/TipDetail";
 import TipsList from "./pages/TipsList";
-import ArticleNew from "./pages/ArticleNew";
-import ArticleDetail from "./pages/ArticleDetail";
-import ArticleEdit from "./pages/ArticleEdit";
-import MemoNew from "./pages/MemoNew";
-import MemoDetail from "./pages/MemoDetail";
-import BookNew from "./pages/BookNew";
-import BookDetail from "./pages/BookDetail";
 import ProfileSettings from "./pages/ProfileSettings";
 import UserProfile from "./pages/UserProfile";
 import SearchPage from "./pages/SearchPage";
@@ -34,13 +28,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/tips" element={<TipsList />} />
             <Route path="/tips/new" element={<TipNew />} />
-            <Route path="/articles/new" element={<ArticleNew />} />
-            <Route path="/articles/:id" element={<ArticleDetail />} />
-            <Route path="/articles/:id/edit" element={<ArticleEdit />} />
-            <Route path="/memos/new" element={<MemoNew />} />
-            <Route path="/memos/:id" element={<MemoDetail />} />
-            <Route path="/books/new" element={<BookNew />} />
-            <Route path="/books/:id" element={<BookDetail />} />
+            <Route path="/tips/:id" element={<TipDetail />} />
             <Route path="/settings/profile" element={<ProfileSettings />} />
             <Route path="/users/:username" element={<UserProfile />} />
             <Route path="/search" element={<SearchPage />} />

@@ -5,28 +5,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  useArticlesMapped,
+  useTipsMapped,
   useTrendingTags,
   useWeeklyUserRanking,
 } from "@/hooks/use-domain-queries";
 
 export function RightSidebar() {
-  const { data: articles = [], isLoading: artLoading } = useArticlesMapped();
+  const { data: tips = [], isLoading: tipLoading } = useTipsMapped();
   const { data: trendingTags = [], isLoading: tagLoading } = useTrendingTags();
   const { data: weeklyRanking = [], isLoading: rankLoading } =
     useWeeklyUserRanking();
 
-  const topArticles = useMemo(() => {
-    return [...articles]
+  const topTips = useMemo(() => {
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return tips
+      .filter((t) => {
+        const publishedAt = t.published_at ?? t.created_at;
+        return new Date(publishedAt).getTime() >= oneWeekAgo;
+      })
       .sort((a, b) => {
         const scoreA = Object.values(a.reactions).reduce((s, v) => s + v, 0);
         const scoreB = Object.values(b.reactions).reduce((s, v) => s + v, 0);
         return scoreB - scoreA;
       })
       .slice(0, 3);
-  }, [articles]);
+  }, [tips]);
 
-  const loading = artLoading || tagLoading || rankLoading;
+  const loading = tipLoading || tagLoading || rankLoading;
 
   if (loading) {
     return (
@@ -42,14 +47,14 @@ export function RightSidebar() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <TrendingUp className="h-4 w-4 text-kh-orange" />
-            週間ランキング
+            今週の気づき
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {topArticles.map((article, i) => (
+          {topTips.map((tip, i) => (
             <Link
-              key={article.id}
-              to={`/articles/${article.id}`}
+              key={tip.id}
+              to={`/tips/${tip.id}`}
               className="flex gap-3 group"
             >
               <span className="text-lg font-bold text-muted-foreground/50 w-5">
@@ -57,10 +62,10 @@ export function RightSidebar() {
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-medium leading-tight group-hover:text-primary line-clamp-2">
-                  {article.title}
+                  {tip.content}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {article.author.display_name}
+                  {tip.is_anonymous ? "名無しエンジニア" : tip.author.display_name}
                 </p>
               </div>
             </Link>
@@ -118,7 +123,7 @@ export function RightSidebar() {
                   {user.display_name}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  🙏 {reactionCount} reactions
+                  💡 {reactionCount} リアクション
                 </p>
               </div>
             </Link>
