@@ -86,7 +86,7 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
     setIsAnonymous(false);
     setSubmitting(false);
     onOpenChange(false);
-    toast.success("Tipsを投稿しました");
+    toast.success("気づきを投稿しました");
   };
 
   const remaining = 280 - content.length;
@@ -96,7 +96,7 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">💬 Tipsを投稿</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">💡 気づきを投稿</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -104,7 +104,7 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 280))}
-              placeholder="学んだこと、気づいたことをシェアしよう..."
+              placeholder="今日、何に気づいた？ どんな違和感を感じた？"
               className="w-full min-h-[120px] resize-none rounded-lg border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               autoFocus
             />

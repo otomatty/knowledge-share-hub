@@ -7,22 +7,13 @@ import {
   fetchReactionCountsReceivedByAuthors,
 } from "@/lib/reaction-aggregates";
 import {
-  mapArticleRow,
-  mapBookRow,
   mapCommentRow,
-  mapMemoRow,
   mapTipRow,
-  type ArticleWithJoins,
-  type BookWithJoins,
   type CommentWithAuthor,
-  type MemoWithJoins,
   type TipWithJoins,
 } from "@/lib/supabase-mappers";
 import type {
-  Article,
-  Book,
   Comment,
-  Memo,
   ReactionSummary,
   ReactionType,
   Tag,
@@ -62,7 +53,7 @@ export function useUserReactionTypesOnContent(
 }
 
 export function useCommentsThread(
-  contentType: "memo" | "article",
+  contentType: "tip",
   contentId: string | undefined,
 ) {
   return useQuery({
@@ -124,179 +115,35 @@ export function useTipsMapped() {
       if (error) throw error;
       const rows = data as TipWithJoins[];
       const ids = rows.map((r) => r.id);
-      const rx = await fetchReactionSummaries("tip", ids);
-      return rows.map((r) => mapTipRow(r, rx[r.id] ?? { helped: 0, clear: 0, learned: 0, nice: 0 }));
-    },
-  });
-}
-
-export function useArticlesMapped() {
-  return useQuery({
-    queryKey: ["articles", "domain"],
-    queryFn: async (): Promise<Article[]> => {
-      const { data, error } = await supabase
-        .from("articles")
-        .select(
-          `*, author:profiles!articles_author_id_fkey(*), article_tags(tag:tags(*))`,
-        )
-        .eq("status", "published")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      const rows = data as ArticleWithJoins[];
-      const ids = rows.map((r) => r.id);
       const [rx, cc] = await Promise.all([
-        fetchReactionSummaries("article", ids),
-        fetchCommentCounts("article", ids),
+        fetchReactionSummaries("tip", ids),
+        fetchCommentCounts("tip", ids),
       ]);
       return rows.map((r) =>
-        mapArticleRow(
-          r,
-          rx[r.id] ?? { helped: 0, clear: 0, learned: 0, nice: 0 },
-          cc[r.id] ?? 0,
-        ),
+        mapTipRow(r, rx[r.id] ?? emptyRx(), cc[r.id] ?? 0),
       );
     },
   });
 }
 
-export function useMemosMapped() {
+export function useTipByIdMapped(id: string | undefined) {
   return useQuery({
-    queryKey: ["memos", "domain"],
-    queryFn: async (): Promise<Memo[]> => {
+    queryKey: ["tips", "domain", id],
+    queryFn: async (): Promise<Tip> => {
       const { data, error } = await supabase
-        .from("memos")
+        .from("tips")
         .select(
-          `*, author:profiles!memos_author_id_fkey(*), memo_tags(tag:tags(*)), memo_entries(*)`,
-        )
-        .eq("status", "published")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      const rows = data as MemoWithJoins[];
-      const ids = rows.map((r) => r.id);
-      const [rx, cc] = await Promise.all([
-        fetchReactionSummaries("memo", ids),
-        fetchCommentCounts("memo", ids),
-      ]);
-      return rows.map((r) =>
-        mapMemoRow(
-          r,
-          rx[r.id] ?? { helped: 0, clear: 0, learned: 0, nice: 0 },
-          cc[r.id] ?? 0,
-        ),
-      );
-    },
-  });
-}
-
-export function useBooksMapped() {
-  return useQuery({
-    queryKey: ["books", "domain"],
-    queryFn: async (): Promise<Book[]> => {
-      const { data, error } = await supabase
-        .from("books")
-        .select(
-          `*, author:profiles!books_author_id_fkey(*), book_chapters(*, article:articles(*, author:profiles!articles_author_id_fkey(*), article_tags(tag:tags(*))))`,
-        )
-        .eq("status", "published")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      const rows = data as BookWithJoins[];
-      const articleIds = new Set<string>();
-      for (const b of rows) {
-        for (const ch of b.book_chapters ?? []) {
-          if (ch.article?.id) articleIds.add(ch.article.id);
-        }
-      }
-      const ids = [...articleIds];
-      const [rx, cc] = await Promise.all([
-        fetchReactionSummaries("article", ids),
-        fetchCommentCounts("article", ids),
-      ]);
-      const rxMap = rx;
-      const ccMap = cc;
-      return rows.map((b) =>
-        mapBookRow(b, rxMap, ccMap),
-      );
-    },
-  });
-}
-
-export function useArticleByIdMapped(id: string | undefined) {
-  return useQuery({
-    queryKey: ["articles", "domain", id],
-    queryFn: async (): Promise<Article> => {
-      const { data, error } = await supabase
-        .from("articles")
-        .select(
-          `*, author:profiles!articles_author_id_fkey(*), article_tags(tag:tags(*))`,
+          `*, author:profiles!tips_author_id_fkey(*), tip_tags(tag:tags(*))`,
         )
         .eq("id", id!)
         .single();
       if (error) throw error;
-      const row = data as ArticleWithJoins;
+      const row = data as TipWithJoins;
       const [rx, cc] = await Promise.all([
-        fetchReactionSummaries("article", [row.id]),
-        fetchCommentCounts("article", [row.id]),
+        fetchReactionSummaries("tip", [row.id]),
+        fetchCommentCounts("tip", [row.id]),
       ]);
-      return mapArticleRow(
-        row,
-        rx[row.id] ?? { helped: 0, clear: 0, learned: 0, nice: 0 },
-        cc[row.id] ?? 0,
-      );
-    },
-    enabled: !!id,
-  });
-}
-
-export function useMemoByIdMapped(id: string | undefined) {
-  return useQuery({
-    queryKey: ["memos", "domain", id],
-    queryFn: async (): Promise<Memo> => {
-      const { data, error } = await supabase
-        .from("memos")
-        .select(
-          `*, author:profiles!memos_author_id_fkey(*), memo_tags(tag:tags(*)), memo_entries(*)`,
-        )
-        .eq("id", id!)
-        .single();
-      if (error) throw error;
-      const row = data as MemoWithJoins;
-      const [rx, cc] = await Promise.all([
-        fetchReactionSummaries("memo", [row.id]),
-        fetchCommentCounts("memo", [row.id]),
-      ]);
-      return mapMemoRow(
-        row,
-        rx[row.id] ?? { helped: 0, clear: 0, learned: 0, nice: 0 },
-        cc[row.id] ?? 0,
-      );
-    },
-    enabled: !!id,
-  });
-}
-
-export function useBookByIdMapped(id: string | undefined) {
-  return useQuery({
-    queryKey: ["books", "domain", id],
-    queryFn: async (): Promise<Book> => {
-      const { data, error } = await supabase
-        .from("books")
-        .select(
-          `*, author:profiles!books_author_id_fkey(*), book_chapters(*, article:articles(*, author:profiles!articles_author_id_fkey(*), article_tags(tag:tags(*))))`,
-        )
-        .eq("id", id!)
-        .single();
-      if (error) throw error;
-      const row = data as BookWithJoins;
-      const articleIds: string[] = [];
-      for (const ch of row.book_chapters ?? []) {
-        if (ch.article?.id) articleIds.push(ch.article.id);
-      }
-      const [rx, cc] = await Promise.all([
-        fetchReactionSummaries("article", articleIds),
-        fetchCommentCounts("article", articleIds),
-      ]);
-      return mapBookRow(row, rx, cc);
+      return mapTipRow(row, rx[row.id] ?? emptyRx(), cc[row.id] ?? 0);
     },
     enabled: !!id,
   });

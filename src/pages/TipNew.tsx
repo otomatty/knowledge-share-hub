@@ -55,21 +55,21 @@ export default function TipNew() {
 
     queryClient.invalidateQueries({ queryKey: ["tips"] });
     setSubmitting(false);
-    toast.success("投稿しました");
+    toast.success("気づきを投稿しました");
     navigate("/tips");
   };
 
   return (
     <MainLayout showSidebar={false}>
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">💬 Tips を投稿する</h1>
+        <h1 className="text-2xl font-bold mb-6">💡 気づきを投稿する</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>ひとこと（最大100文字）</Label>
+            <Label>気づき（最大100文字）</Label>
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 100))}
-              placeholder="今日ハマったこと、便利コマンド、ちょっとした気づきなど..."
+              placeholder="今日、何に気づいた？ どんな違和感を感じた？"
               className="resize-none h-24"
               maxLength={100}
             />

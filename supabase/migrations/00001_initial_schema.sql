@@ -116,7 +116,7 @@ create table knowledge_share_hub.comments (
   id uuid primary key default gen_random_uuid(),
   author_id uuid not null references knowledge_share_hub.profiles(id) on delete cascade,
   content text not null,
-  content_type text not null check (content_type in ('memo', 'article')),
+  content_type text not null check (content_type in ('tip', 'memo', 'article')),
   content_id uuid not null,
   parent_id uuid references knowledge_share_hub.comments(id) on delete cascade,
   created_at timestamptz not null default now()

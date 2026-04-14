@@ -5,7 +5,7 @@ import { ReactionButtons } from "@/components/shared/ReactionButtons";
 import type { ReactionType } from "@/types";
 
 interface ContentReactionsProps {
-  contentType: "tip" | "memo" | "article";
+  contentType: "tip";
   contentId: string;
 }
 

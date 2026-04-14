@@ -1,46 +1,30 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentCard } from "@/components/shared/ContentCard";
 import {
-  useArticlesMapped,
-  useMemosMapped,
   useProfileByUsername,
   useTipsMapped,
 } from "@/hooks/use-domain-queries";
 
 export default function UserProfile() {
   const { username } = useParams();
-  const [tab, setTab] = useState("articles");
   const profileQ = useProfileByUsername(username);
   const tipsQ = useTipsMapped();
-  const articlesQ = useArticlesMapped();
-  const memosQ = useMemosMapped();
 
   const user = profileQ.data?.profile;
   const userId = profileQ.data?.userId;
 
-  const { userTips, userArticles, userMemos } = useMemo(() => {
-    if (!userId) {
-      return { userTips: [], userArticles: [], userMemos: [] };
-    }
-    return {
-      userTips: (tipsQ.data ?? []).filter(
-        (t) => t.author.id === userId && !t.is_anonymous,
-      ),
-      userArticles: (articlesQ.data ?? []).filter(
-        (a) => a.author.id === userId && !a.is_anonymous,
-      ),
-      userMemos: (memosQ.data ?? []).filter(
-        (m) => m.author.id === userId && !m.is_anonymous,
-      ),
-    };
-  }, [userId, tipsQ.data, articlesQ.data, memosQ.data]);
+  const userTips = useMemo(() => {
+    if (!userId) return [];
+    return (tipsQ.data ?? []).filter(
+      (t) => t.author.id === userId && !t.is_anonymous,
+    );
+  }, [userId, tipsQ.data]);
 
-  if (profileQ.isLoading || tipsQ.isLoading || articlesQ.isLoading || memosQ.isLoading) {
+  if (profileQ.isLoading || tipsQ.isLoading) {
     return (
       <MainLayout>
         <p className="text-muted-foreground py-12">読み込み中…</p>
@@ -86,57 +70,21 @@ export default function UserProfile() {
           </div>
         </div>
 
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="articles">
-              📄 記事 ({userArticles.length})
-            </TabsTrigger>
-            <TabsTrigger value="memos">📝 メモ ({userMemos.length})</TabsTrigger>
-            <TabsTrigger value="tips">💬 Tips ({userTips.length})</TabsTrigger>
-          </TabsList>
-          <TabsContent value="articles">
-            <div className="bg-card rounded-lg border divide-y">
-              {userArticles.map((a) => (
-                <div key={a.id} className="px-4">
-                  <ContentCard type="article" data={a} />
-                </div>
-              ))}
-              {userArticles.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  記事がありません
-                </p>
-              )}
+        <h2 className="text-lg font-semibold mb-3">
+          💬 気づき ({userTips.length})
+        </h2>
+        <div className="bg-card rounded-lg border divide-y">
+          {userTips.map((t) => (
+            <div key={t.id} className="px-4">
+              <ContentCard type="tip" data={t} />
             </div>
-          </TabsContent>
-          <TabsContent value="memos">
-            <div className="bg-card rounded-lg border divide-y">
-              {userMemos.map((m) => (
-                <div key={m.id} className="px-4">
-                  <ContentCard type="memo" data={m} />
-                </div>
-              ))}
-              {userMemos.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  メモがありません
-                </p>
-              )}
-            </div>
-          </TabsContent>
-          <TabsContent value="tips">
-            <div className="bg-card rounded-lg border divide-y">
-              {userTips.map((t) => (
-                <div key={t.id} className="px-4">
-                  <ContentCard type="tip" data={t} />
-                </div>
-              ))}
-              {userTips.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  Tipsがありません
-                </p>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+          ))}
+          {userTips.length === 0 && (
+            <p className="text-center text-muted-foreground py-8">
+              まだ気づきがありません
+            </p>
+          )}
+        </div>
       </div>
     </MainLayout>
   );

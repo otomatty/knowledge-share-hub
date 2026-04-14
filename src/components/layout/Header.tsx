@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Bell, ChevronDown, PenSquare } from "lucide-react";
+import { Search, Bell, PenSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -91,30 +91,15 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" className="gap-1 ml-2" variant="outline">
-                  <PenSquare className="h-4 w-4" />
-                  <span className="hidden sm:inline">投稿する</span>
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTipDialogOpen(true)}>
-                  💬 Tips（ひとこと）
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/memos/new")}>
-                  📝 メモ
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/articles/new")}>
-                  📄 記事
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/books/new")}>
-                  📚 ブック
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              size="sm"
+              className="gap-1 ml-2"
+              variant="outline"
+              onClick={() => setTipDialogOpen(true)}
+            >
+              <PenSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">気づきを投稿</span>
+            </Button>
           </div>
         </div>
       </header>

@@ -16,7 +16,7 @@ export default function TipsList() {
   return (
     <MainLayout>
       <div>
-        <h1 className="text-2xl font-bold mb-4">💬 Tips</h1>
+        <h1 className="text-2xl font-bold mb-4">💡 気づき</h1>
         <div className="bg-card rounded-lg border">
           <div className="divide-y">
             {tips.map((tip) => (
