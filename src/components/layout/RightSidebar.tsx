@@ -17,7 +17,12 @@ export function RightSidebar() {
     useWeeklyUserRanking();
 
   const topTips = useMemo(() => {
-    return [...tips]
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return tips
+      .filter((t) => {
+        const publishedAt = t.published_at ?? t.created_at;
+        return new Date(publishedAt).getTime() >= oneWeekAgo;
+      })
       .sort((a, b) => {
         const scoreA = Object.values(a.reactions).reduce((s, v) => s + v, 0);
         const scoreB = Object.values(b.reactions).reduce((s, v) => s + v, 0);
@@ -118,7 +123,7 @@ export function RightSidebar() {
                   {user.display_name}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  💡 {reactionCount} reactions
+                  💡 {reactionCount} リアクション
                 </p>
               </div>
             </Link>

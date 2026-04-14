@@ -21,6 +21,19 @@ drop table if exists knowledge_share_hub.articles cascade;
 
 -- 2. Clean up rows that refer to dropped content types via the polymorphic
 -- (content_type, content_id) pattern.
+--
+-- First, delete reactions attached to comments on dropped content.
+-- reactions.content_id is polymorphic and has no FK to comments, so the
+-- cascade on the comments delete below does not reach them. Do this before
+-- dropping the comments themselves so the subquery still resolves.
+delete from knowledge_share_hub.reactions
+  where content_type = 'comment'
+    and content_id in (
+      select id
+        from knowledge_share_hub.comments
+       where content_type in ('article', 'memo')
+    );
+
 delete from knowledge_share_hub.comments
   where content_type in ('article', 'memo');
 delete from knowledge_share_hub.reactions

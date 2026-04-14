@@ -41,7 +41,10 @@ export async function fetchReactionCountsReceivedByAuthors(): Promise<
 > {
   const [{ data: tips, error: e1 }, { data: rx, error: e2 }] = await Promise.all([
     supabase.from("tips").select("id, author_id"),
-    supabase.from("reactions").select("content_type, content_id"),
+    supabase
+      .from("reactions")
+      .select("content_id")
+      .eq("content_type", "tip"),
   ]);
   if (e1) throw e1;
   if (e2) throw e2;
@@ -52,7 +55,6 @@ export async function fetchReactionCountsReceivedByAuthors(): Promise<
 
   const counts = new Map<string, number>();
   for (const r of rx ?? []) {
-    if ((r.content_type as string) !== "tip") continue;
     const author = tipAuthor.get(r.content_id as string);
     if (author) counts.set(author, (counts.get(author) ?? 0) + 1);
   }

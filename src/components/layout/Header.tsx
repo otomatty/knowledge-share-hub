@@ -96,9 +96,12 @@ export function Header() {
               className="gap-1 ml-2"
               variant="outline"
               onClick={() => setTipDialogOpen(true)}
+              aria-label="気づきを投稿"
             >
-              <PenSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">気づきを投稿</span>
+              <PenSquare className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline" aria-hidden="true">
+                気づきを投稿
+              </span>
             </Button>
           </div>
         </div>

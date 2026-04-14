@@ -21,7 +21,7 @@ export default function TipsList() {
           <div className="divide-y">
             {tips.map((tip) => (
               <div key={tip.id} className="px-4">
-                <ContentCard type="tip" data={tip} />
+                <ContentCard data={tip} />
               </div>
             ))}
           </div>

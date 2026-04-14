@@ -32,10 +32,20 @@ export default function UserProfile() {
     );
   }
 
-  if (!user) {
+  if (profileQ.isError || !user) {
     return (
       <MainLayout>
         <p className="text-muted-foreground py-12">ユーザーが見つかりません</p>
+      </MainLayout>
+    );
+  }
+
+  if (tipsQ.isError) {
+    return (
+      <MainLayout>
+        <p className="text-destructive py-12">
+          気づきの読み込みに失敗しました。時間をおいて再度お試しください。
+        </p>
       </MainLayout>
     );
   }
@@ -76,7 +86,7 @@ export default function UserProfile() {
         <div className="bg-card rounded-lg border divide-y">
           {userTips.map((t) => (
             <div key={t.id} className="px-4">
-              <ContentCard type="tip" data={t} />
+              <ContentCard data={t} />
             </div>
           ))}
           {userTips.length === 0 && (

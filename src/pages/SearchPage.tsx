@@ -33,7 +33,7 @@ export default function SearchPage() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="キーワード、タグ、著者名で検索..."
+            placeholder="キーワード、タグで検索..."
             className="pl-10 h-12 text-base"
           />
         </div>
@@ -48,7 +48,7 @@ export default function SearchPage() {
         <div className="bg-card rounded-lg border divide-y">
           {results.map((tip) => (
             <div key={tip.id} className="px-4">
-              <ContentCard type="tip" data={tip} />
+              <ContentCard data={tip} />
             </div>
           ))}
           {query && results.length === 0 && !loading && (

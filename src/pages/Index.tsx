@@ -17,6 +17,16 @@ export default function Index() {
     );
   }
 
+  if (tipsQ.isError) {
+    return (
+      <MainLayout>
+        <p className="text-destructive py-12 text-center">
+          気づきの読み込みに失敗しました。時間をおいて再度お試しください。
+        </p>
+      </MainLayout>
+    );
+  }
+
   const tips = tipsQ.data ?? [];
 
   return (
@@ -38,7 +48,7 @@ export default function Index() {
             <div className="divide-y">
               {tips.map((tip) => (
                 <div key={tip.id} className="px-4">
-                  <ContentCard type="tip" data={tip} />
+                  <ContentCard data={tip} />
                 </div>
               ))}
             </div>

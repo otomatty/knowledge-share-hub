@@ -65,16 +65,16 @@ export default function TipNew() {
         <h1 className="text-2xl font-bold mb-6">💡 気づきを投稿する</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>気づき（最大100文字）</Label>
+            <Label>気づき（最大140文字）</Label>
             <Textarea
               value={content}
-              onChange={(e) => setContent(e.target.value.slice(0, 100))}
+              onChange={(e) => setContent(e.target.value.slice(0, 140))}
               placeholder="今日、何に気づいた？ どんな違和感を感じた？"
               className="resize-none h-24"
-              maxLength={100}
+              maxLength={140}
             />
             <p className="text-xs text-muted-foreground text-right">
-              {content.length}/100
+              {content.length}/140
             </p>
           </div>
           <div className="space-y-2">

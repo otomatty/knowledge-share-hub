@@ -8,7 +8,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 interface ContentCardProps {
-  type: 'tip';
   data: Tip;
 }
 
@@ -39,7 +38,7 @@ export function ContentCard({ data }: ContentCardProps) {
       {data.tags.length > 0 && (
         <div className="flex gap-1.5 mb-2 flex-wrap">
           {data.tags.map(tag => (
-            <Link key={tag.id} to={`/search?tag=${tag.name}`}>
+            <Link key={tag.id} to={`/search?tag=${encodeURIComponent(tag.name)}`}>
               <Badge variant="secondary" className="text-xs hover:bg-primary/10">{tag.name}</Badge>
             </Link>
           ))}

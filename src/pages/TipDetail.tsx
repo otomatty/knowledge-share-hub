@@ -68,7 +68,7 @@ export default function TipDetail() {
         {tip.tags.length > 0 && (
           <div className="flex gap-1.5 mb-4 flex-wrap">
             {tip.tags.map((tag) => (
-              <Link key={tag.id} to={`/search?tag=${tag.name}`}>
+              <Link key={tag.id} to={`/search?tag=${encodeURIComponent(tag.name)}`}>
                 <Badge
                   variant="secondary"
                   className="text-xs hover:bg-primary/10"
