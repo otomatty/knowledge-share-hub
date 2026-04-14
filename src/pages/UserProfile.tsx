@@ -67,7 +67,7 @@ export default function UserProfile() {
           <div className="flex items-start gap-4">
             <Avatar className="h-16 w-16">
               <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                {user.display_name[0]}
+                {user.display_name[0] ?? "?"}
               </AvatarFallback>
             </Avatar>
             <div>
@@ -93,18 +93,19 @@ export default function UserProfile() {
         <h2 className="text-lg font-semibold mb-3">
           💬 気づき ({userTips.length})
         </h2>
-        <div className="bg-card rounded-lg border divide-y">
-          {userTips.map((t) => (
-            <div key={t.id} className="px-4">
-              <ContentCard data={t} />
-            </div>
-          ))}
-          {userTips.length === 0 && (
-            <p className="text-center text-muted-foreground py-8">
-              まだ気づきがありません
-            </p>
-          )}
-        </div>
+        {userTips.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">
+            まだ気づきがありません
+          </p>
+        ) : (
+          <div className="bg-card rounded-lg border divide-y">
+            {userTips.map((t) => (
+              <div key={t.id} className="px-4">
+                <ContentCard data={t} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </MainLayout>
   );

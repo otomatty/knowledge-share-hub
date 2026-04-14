@@ -13,7 +13,7 @@ interface ContentCardProps {
 
 export function ContentCard({ data }: ContentCardProps) {
   const authorName = data.is_anonymous ? '名無しエンジニア' : data.author.display_name;
-  const authorInitial = data.is_anonymous ? '匿' : data.author.display_name[0];
+  const authorInitial = data.is_anonymous ? '匿' : (data.author.display_name[0] ?? '?');
   const timeAgo = formatDistanceToNow(new Date(data.created_at), { locale: ja, addSuffix: true });
 
   return (

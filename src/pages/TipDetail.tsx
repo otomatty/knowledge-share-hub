@@ -41,7 +41,7 @@ export default function TipDetail() {
   const authorName = tip.is_anonymous
     ? "名無しエンジニア"
     : tip.author.display_name;
-  const authorInitial = tip.is_anonymous ? "匿" : tip.author.display_name[0];
+  const authorInitial = tip.is_anonymous ? "匿" : (tip.author.display_name[0] ?? "?");
   const timeAgo = formatDistanceToNow(new Date(tip.created_at), {
     locale: ja,
     addSuffix: true,
