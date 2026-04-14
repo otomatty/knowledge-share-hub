@@ -71,6 +71,16 @@ create type knowledge_share_hub.content_type as enum ('tip');
 -- 5. Enforce the tip character limit at the DB level. The UI truncates at
 -- 140 characters; this matches the ceiling for direct API / dashboard
 -- writes so the limit can't be bypassed by non-UI callers.
+--
+-- Truncate any pre-existing tips that exceed the new ceiling first. The
+-- old TipsDialog allowed up to 280 characters, so production rows could
+-- be 141–280 chars long. ADD CONSTRAINT validates every existing row, so
+-- a violating row would fail the migration partway through — after the
+-- article/memo/book tables have already been dropped.
+update knowledge_share_hub.tips
+  set content = left(content, 140)
+  where char_length(content) > 140;
+
 alter table knowledge_share_hub.tips
   drop constraint if exists tips_content_length_check;
 alter table knowledge_share_hub.tips
