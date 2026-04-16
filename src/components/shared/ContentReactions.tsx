@@ -32,7 +32,7 @@ export function ContentReactions({ contentType, contentId }: ContentReactionsPro
   return (
     <ReactionButtons
       reactions={
-        reactions ?? { helped: 0, clear: 0, learned: 0, nice: 0 }
+        reactions ?? { same_thought: 0, new_view: 0, try_it: 0, learned: 0 }
       }
       activeTypes={activeTypes}
       onToggle={handleToggle}

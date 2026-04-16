@@ -32,7 +32,7 @@ export function CommentReactions({ commentId, size = "sm" }: CommentReactionsPro
   return (
     <ReactionButtons
       reactions={
-        reactions ?? { helped: 0, clear: 0, learned: 0, nice: 0 }
+        reactions ?? { same_thought: 0, new_view: 0, try_it: 0, learned: 0 }
       }
       size={size}
       activeTypes={activeTypes}

@@ -50,7 +50,7 @@ export function useReactionCounts(contentType: string, contentId: string) {
         .eq("content_id", contentId);
       if (error) throw error;
 
-      const counts = { helped: 0, clear: 0, learned: 0, nice: 0 };
+      const counts = { same_thought: 0, new_view: 0, try_it: 0, learned: 0 };
       for (const row of data) {
         const rt = row.reaction_type as keyof typeof counts;
         counts[rt]++;
