@@ -1,6 +1,6 @@
 export type ContentType = 'tip';
 export type ContentStatus = 'draft' | 'published';
-export type ReactionType = 'helped' | 'clear' | 'learned' | 'nice';
+export type ReactionType = 'same_thought' | 'new_view' | 'try_it' | 'learned';
 export type UserRole = 'admin' | 'user';
 
 export interface User {
@@ -46,10 +46,10 @@ export interface Comment {
 }
 
 export interface ReactionSummary {
-  helped: number;
-  clear: number;
+  same_thought: number;
+  new_view: number;
+  try_it: number;
   learned: number;
-  nice: number;
 }
 
 export interface Notification {
@@ -64,8 +64,8 @@ export interface Notification {
 }
 
 export const REACTION_CONFIG: Record<ReactionType, { emoji: string; label: string }> = {
-  helped: { emoji: '🙏', label: '助かった' },
-  clear: { emoji: '📖', label: 'わかりやすい' },
-  learned: { emoji: '💡', label: '勉強になった' },
-  nice: { emoji: '👏', label: 'ナイス' },
+  same_thought: { emoji: '🤔', label: '自分も思った' },
+  new_view: { emoji: '💡', label: '新しい視点だった' },
+  try_it: { emoji: '🔁', label: '試してみる' },
+  learned: { emoji: '📘', label: '学びになった' },
 };

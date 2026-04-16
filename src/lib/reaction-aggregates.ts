@@ -2,10 +2,10 @@ import { supabase } from "@/lib/supabase";
 import type { ReactionSummary } from "@/types";
 
 const emptySummary = (): ReactionSummary => ({
-  helped: 0,
-  clear: 0,
+  same_thought: 0,
+  new_view: 0,
+  try_it: 0,
   learned: 0,
-  nice: 0,
 });
 
 export async function fetchReactionSummaries(
