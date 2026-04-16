@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserReactionTypesOnContent } from "@/hooks/use-domain-queries";
 import { useReactionCounts, useToggleReaction } from "@/hooks/use-supabase-query";
+import { emptyReactionSummary } from "@/lib/reaction-aggregates";
 import { ReactionButtons } from "@/components/shared/ReactionButtons";
 import type { ReactionType } from "@/types";
 
@@ -32,7 +33,7 @@ export function ContentReactions({ contentType, contentId }: ContentReactionsPro
   return (
     <ReactionButtons
       reactions={
-        reactions ?? { helped: 0, clear: 0, learned: 0, nice: 0 }
+        reactions ?? emptyReactionSummary()
       }
       activeTypes={activeTypes}
       onToggle={handleToggle}

@@ -184,7 +184,7 @@ export type Database = {
           user_id: string;
           content_type: "tip" | "comment";
           content_id: string;
-          reaction_type: "helped" | "clear" | "learned" | "nice";
+          reaction_type: "same_thought" | "new_view" | "try_it" | "learned";
           created_at: string;
         };
         Insert: {
@@ -192,7 +192,7 @@ export type Database = {
           user_id: string;
           content_type: "tip" | "comment";
           content_id: string;
-          reaction_type: "helped" | "clear" | "learned" | "nice";
+          reaction_type: "same_thought" | "new_view" | "try_it" | "learned";
           created_at?: string;
         };
         Update: {
@@ -200,7 +200,7 @@ export type Database = {
           user_id?: string;
           content_type?: "tip" | "comment";
           content_id?: string;
-          reaction_type?: "helped" | "clear" | "learned" | "nice";
+          reaction_type?: "same_thought" | "new_view" | "try_it" | "learned";
           created_at?: string;
         };
       };
@@ -245,7 +245,7 @@ export type Database = {
     Enums: {
       content_status: "draft" | "published";
       content_type: "tip";
-      reaction_type: "helped" | "clear" | "learned" | "nice";
+      reaction_type: "same_thought" | "new_view" | "try_it" | "learned";
       user_role: "admin" | "user";
     };
   };
