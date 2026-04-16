@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { ReactionSummary } from "@/types";
 
-const emptySummary = (): ReactionSummary => ({
+export const emptyReactionSummary = (): ReactionSummary => ({
   same_thought: 0,
   new_view: 0,
   try_it: 0,
@@ -25,7 +25,7 @@ export async function fetchReactionSummaries(
   if (!data) return out;
 
   for (const id of contentIds) {
-    out[id] = emptySummary();
+    out[id] = emptyReactionSummary();
   }
   for (const row of data) {
     const id = row.content_id as string;

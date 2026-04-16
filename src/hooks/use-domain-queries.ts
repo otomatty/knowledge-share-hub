@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import {
+  emptyReactionSummary,
   fetchCommentCounts,
   fetchReactionSummaries,
   fetchTagUsageCounts,
@@ -14,7 +15,6 @@ import {
 } from "@/lib/supabase-mappers";
 import type {
   Comment,
-  ReactionSummary,
   ReactionType,
   Tag,
   Tip,
@@ -22,12 +22,7 @@ import type {
 } from "@/types";
 import { profileToUser } from "@/lib/profile-mapper";
 
-const emptyRx = (): ReactionSummary => ({
-  same_thought: 0,
-  new_view: 0,
-  try_it: 0,
-  learned: 0,
-});
+const emptyRx = emptyReactionSummary;
 
 export function useUserReactionTypesOnContent(
   userId: string | undefined,
