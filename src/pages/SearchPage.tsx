@@ -19,9 +19,12 @@ export default function SearchPage() {
   const contextTags = dbTags.filter((t) => t.category === "context");
   const loading = tipsQ.isLoading;
 
-  // Sync when URL changes (e.g. user clicks a tag link on another page).
-  // If the tag param matches a context tag, lift it into the dedicated
-  // context-tag filter instead of treating it as a free-text query.
+  // The URL is the source of truth. Keep local `query` / `contextFilter` in
+  // sync with `?q=` / `?tag=` so that:
+  //   - keyword and context filter can coexist (`?q=react&tag=#今日の学び`)
+  //   - inbound links from other pages (e.g. ContentCard tag links) that use
+  //     `?tag=` with a context tag name lift into the dedicated filter
+  //   - legacy `?tag=<tech>` links still populate the keyword field
   useEffect(() => {
     const tagParam = searchParams.get("tag");
     const qParam = searchParams.get("q");
@@ -30,7 +33,7 @@ export default function SearchPage() {
     );
     if (tagParam && contextMatch) {
       setContextFilter(tagParam);
-      setQuery("");
+      setQuery(qParam || "");
     } else {
       setQuery(qParam || tagParam || "");
       setContextFilter(null);
@@ -38,7 +41,13 @@ export default function SearchPage() {
   }, [searchParams, dbTags]);
 
   const toggleContextFilter = (name: string) => {
-    setContextFilter((prev) => (prev === name ? null : name));
+    const next = new URLSearchParams(searchParams);
+    if (next.get("tag") === name) {
+      next.delete("tag");
+    } else {
+      next.set("tag", name);
+    }
+    setSearchParams(next, { replace: true });
   };
 
   const results = useMemo(() => {
@@ -62,7 +71,14 @@ export default function SearchPage() {
   const handleQueryChange = (value: string) => {
     setQuery(value);
     const next = new URLSearchParams(searchParams);
-    next.delete("tag");
+    // Preserve `?tag=` only when it's an active context filter. A legacy
+    // tech-tag param (from inbound links) gets cleared once the user starts
+    // typing, since the keyword field supersedes it.
+    const currentTag = next.get("tag");
+    const isContextTag = dbTags.some(
+      (t) => t.category === "context" && t.name === currentTag,
+    );
+    if (!isContextTag) next.delete("tag");
     if (value) next.set("q", value);
     else next.delete("q");
     setSearchParams(next, { replace: true });

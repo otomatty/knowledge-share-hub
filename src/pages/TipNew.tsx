@@ -52,11 +52,10 @@ export default function TipNew() {
       ...(contextTag ? [contextTag.id] : []),
       ...tags.map((t) => t.id),
     ];
-    for (const tagId of allTagIds) {
-      await supabase.from("tip_tags").insert({
-        tip_id: tip.id,
-        tag_id: tagId,
-      });
+    if (allTagIds.length > 0) {
+      await supabase.from("tip_tags").insert(
+        allTagIds.map((tagId) => ({ tip_id: tip.id, tag_id: tagId })),
+      );
     }
 
     queryClient.invalidateQueries({ queryKey: ["tips"] });
