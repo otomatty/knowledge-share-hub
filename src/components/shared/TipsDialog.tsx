@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { ContextTagPicker } from "@/components/shared/ContextTagPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTags } from "@/hooks/use-supabase-query";
 import { supabase } from "@/lib/supabase";
+import { getDailyPrompt } from "@/lib/insight-prompts";
 import type { Tag } from "@/types";
 import { toast } from "sonner";
 
@@ -30,6 +31,7 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
   const [contextTag, setContextTag] = useState<Tag | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const dailyPrompt = useMemo(() => getDailyPrompt(), []);
 
   const toggleTag = (tagName: string) => {
     setSelectedTags((prev) =>
@@ -116,11 +118,15 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+            <p className="text-[10px] text-muted-foreground mb-0.5">今日のお題</p>
+            <p className="text-sm font-medium">{dailyPrompt}</p>
+          </div>
           <div className="relative">
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 140))}
-              placeholder="今日、何に気づいた？ どんな違和感を感じた？"
+              placeholder={dailyPrompt}
               className="w-full min-h-[120px] resize-none rounded-lg border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               autoFocus
             />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -10,6 +10,7 @@ import { TagInput } from "@/components/shared/TagInput";
 import { ContextTagPicker } from "@/components/shared/ContextTagPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { getDailyPrompt } from "@/lib/insight-prompts";
 import type { Tag } from "@/types";
 import { toast } from "sonner";
 
@@ -22,6 +23,7 @@ export default function TipNew() {
   const [contextTag, setContextTag] = useState<Tag | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const dailyPrompt = useMemo(() => getDailyPrompt(), []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,12 +78,16 @@ export default function TipNew() {
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold mb-6">💡 気づきを投稿する</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">今日のお題</p>
+            <p className="text-sm font-medium">{dailyPrompt}</p>
+          </div>
           <div className="space-y-2">
             <Label>気づき（最大140文字）</Label>
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 140))}
-              placeholder="今日、何に気づいた？ どんな違和感を感じた？"
+              placeholder={dailyPrompt}
               className="resize-none h-24"
               maxLength={140}
             />
