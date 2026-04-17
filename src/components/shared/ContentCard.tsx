@@ -47,7 +47,7 @@ export function ContentCard({ data }: ContentCardProps) {
 
       {/* Reactions + comments */}
       <div className="flex items-center gap-3">
-        <ReactionButtons reactions={data.reactions} size="sm" />
+        <ReactionButtons reactions={data.reactions} variant="distribution" size="sm" />
         {(data.comment_count ?? 0) > 0 && (
           <Link
             to={`/tips/${data.id}`}
