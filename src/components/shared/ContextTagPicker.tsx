@@ -9,9 +9,7 @@ interface ContextTagPickerProps {
 
 export function ContextTagPicker({ value, onChange }: ContextTagPickerProps) {
   const { data: dbTags = [] } = useTags();
-  const contextTags = dbTags
-    .filter((t) => t.category === "context")
-    .map((t) => ({ id: t.id, name: t.name, category: "context" as const }));
+  const contextTags = dbTags.filter((t) => t.category === "context");
 
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -21,7 +19,9 @@ export function ContextTagPicker({ value, onChange }: ContextTagPickerProps) {
           <button
             key={tag.id}
             type="button"
-            onClick={() => onChange(isSelected ? null : tag)}
+            onClick={() =>
+              onChange(isSelected ? null : { ...tag, category: "context" })
+            }
             className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
           >
             <Badge

@@ -48,14 +48,21 @@ export default function TipNew() {
       return;
     }
 
-    const allTagIds = [
-      ...(contextTag ? [contextTag.id] : []),
-      ...tags.map((t) => t.id),
-    ];
+    const allTagIds = Array.from(
+      new Set([
+        ...(contextTag ? [contextTag.id] : []),
+        ...tags.map((t) => t.id),
+      ]),
+    );
     if (allTagIds.length > 0) {
-      await supabase.from("tip_tags").insert(
+      const { error: tagErr } = await supabase.from("tip_tags").insert(
         allTagIds.map((tagId) => ({ tip_id: tip.id, tag_id: tagId })),
       );
+      if (tagErr) {
+        toast.error("タグの保存に失敗しました");
+        setSubmitting(false);
+        return;
+      }
     }
 
     queryClient.invalidateQueries({ queryKey: ["tips"] });

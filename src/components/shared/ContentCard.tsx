@@ -3,6 +3,7 @@ import { MessageSquare } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ReactionButtons } from './ReactionButtons';
 import { TagBadgeLink } from './TagBadgeLink';
+import { sortTagsByCategory } from '@/lib/tag-utils';
 import type { Tip } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -37,14 +38,9 @@ export function ContentCard({ data }: ContentCardProps) {
       {/* Tags — context tags first, then tech tags */}
       {data.tags.length > 0 && (
         <div className="flex gap-1.5 mb-2 flex-wrap">
-          {[...data.tags]
-            .sort((a, b) => {
-              if (a.category === b.category) return 0;
-              return a.category === 'context' ? -1 : 1;
-            })
-            .map(tag => (
-              <TagBadgeLink key={tag.id} tag={tag} />
-            ))}
+          {sortTagsByCategory(data.tags).map(tag => (
+            <TagBadgeLink key={tag.id} tag={tag} />
+          ))}
         </div>
       )}
 

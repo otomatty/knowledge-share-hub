@@ -64,10 +64,13 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
     }
 
     if (contextTag) {
-      await supabase.from("tip_tags").insert({
+      const { error: ctxErr } = await supabase.from("tip_tags").insert({
         tip_id: tip.id,
         tag_id: contextTag.id,
       });
+      if (ctxErr) {
+        console.error("Failed to insert context tag:", ctxErr);
+      }
     }
 
     for (const name of selectedTags) {

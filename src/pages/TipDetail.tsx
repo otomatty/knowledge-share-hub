@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContentReactions } from "@/components/shared/ContentReactions";
 import { CommentSection } from "@/components/shared/CommentSection";
 import { TagBadgeLink } from "@/components/shared/TagBadgeLink";
+import { sortTagsByCategory } from "@/lib/tag-utils";
 import { useTipByIdMapped } from "@/hooks/use-domain-queries";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -77,14 +78,9 @@ export default function TipDetail() {
 
         {tip.tags.length > 0 && (
           <div className="flex gap-1.5 mb-4 flex-wrap">
-            {[...tip.tags]
-              .sort((a, b) => {
-                if (a.category === b.category) return 0;
-                return a.category === "context" ? -1 : 1;
-              })
-              .map((tag) => (
-                <TagBadgeLink key={tag.id} tag={tag} />
-              ))}
+            {sortTagsByCategory(tip.tags).map((tag) => (
+              <TagBadgeLink key={tag.id} tag={tag} />
+            ))}
           </div>
         )}
 

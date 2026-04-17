@@ -23,7 +23,7 @@ export interface Tag {
   category: TagCategory;
 }
 
-export const CONTEXT_TAG_PRESETS: readonly string[] = [
+export const CONTEXT_TAG_PRESETS = [
   '#今日の学び',
   '#ハマった',
   '#逆に気づいた',
