@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ContextTagPicker } from "@/components/shared/ContextTagPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTags } from "@/hooks/use-supabase-query";
+import { useDailyPrompt } from "@/hooks/use-daily-prompt";
 import { supabase } from "@/lib/supabase";
 import type { Tag } from "@/types";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
   const [contextTag, setContextTag] = useState<Tag | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const dailyPrompt = useDailyPrompt();
 
   const toggleTag = (tagName: string) => {
     setSelectedTags((prev) =>
@@ -116,11 +118,16 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">今日のお題</p>
+            <p className="text-sm font-medium">{dailyPrompt}</p>
+          </div>
           <div className="relative">
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 140))}
-              placeholder="今日、何に気づいた？ どんな違和感を感じた？"
+              placeholder={dailyPrompt}
+              maxLength={140}
               className="w-full min-h-[120px] resize-none rounded-lg border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               autoFocus
             />
