@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -10,7 +10,7 @@ import { TagInput } from "@/components/shared/TagInput";
 import { ContextTagPicker } from "@/components/shared/ContextTagPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { getDailyPrompt } from "@/lib/insight-prompts";
+import { useDailyPrompt } from "@/hooks/use-daily-prompt";
 import type { Tag } from "@/types";
 import { toast } from "sonner";
 
@@ -23,7 +23,7 @@ export default function TipNew() {
   const [contextTag, setContextTag] = useState<Tag | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const dailyPrompt = useMemo(() => getDailyPrompt(), []);
+  const dailyPrompt = useDailyPrompt();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

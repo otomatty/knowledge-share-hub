@@ -16,10 +16,19 @@ describe("insight-prompts", () => {
     expect(a).toBe(b);
   });
 
-  it("rotates by getDate() % length", () => {
-    const date = new Date(2026, 3, 17);
-    expect(getDailyPrompt(date)).toBe(
-      INSIGHT_PROMPTS[date.getDate() % INSIGHT_PROMPTS.length],
-    );
+  it("rotates by one step per calendar day", () => {
+    const a = getDailyPrompt(new Date(2026, 3, 17));
+    const b = getDailyPrompt(new Date(2026, 3, 18));
+    const idxA = INSIGHT_PROMPTS.indexOf(a);
+    const idxB = INSIGHT_PROMPTS.indexOf(b);
+    expect(idxB).toBe((idxA + 1) % INSIGHT_PROMPTS.length);
+  });
+
+  it("does not collide at month boundaries", () => {
+    // A naive `date.getDate() % length` would map Jan 31 and Feb 1 to the
+    // same index whenever 31 % length === 1 % length.
+    const jan31 = getDailyPrompt(new Date(2026, 0, 31));
+    const feb1 = getDailyPrompt(new Date(2026, 1, 1));
+    expect(jan31).not.toBe(feb1);
   });
 });
