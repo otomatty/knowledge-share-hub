@@ -17,16 +17,16 @@ export const INSIGHT_PROMPTS: readonly string[] = [
 ] as const;
 
 export function getDailyPrompt(date: Date = new Date()): string {
-  // Absolute day number (local date), so consecutive calendar days always
-  // rotate by one step — avoids collisions at month boundaries that a plain
-  // `getDate() % length` would produce (e.g. Jan 31 and Feb 1 mapping to the
-  // same prompt).
-  const localMidnightMs = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  ).getTime();
-  const dayIndex = Math.floor(localMidnightMs / 86_400_000);
+  // Derive a day number from the local *calendar date* via `Date.UTC`, which
+  // always returns a clean multiple of 86_400_000. Two alternatives that look
+  // simpler are both wrong:
+  //   - `date.getDate() % length` collides across month boundaries.
+  //   - `localMidnight.getTime() / 86_400_000` collides on DST spring-forward
+  //     days (consecutive local midnights are only 23 h apart there).
+  const dayIndex = Math.floor(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) /
+      86_400_000,
+  );
   return INSIGHT_PROMPTS[
     ((dayIndex % INSIGHT_PROMPTS.length) + INSIGHT_PROMPTS.length) %
       INSIGHT_PROMPTS.length

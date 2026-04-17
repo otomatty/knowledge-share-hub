@@ -31,4 +31,13 @@ describe("insight-prompts", () => {
     const feb1 = getDailyPrompt(new Date(2026, 1, 1));
     expect(jan31).not.toBe(feb1);
   });
+
+  it("does not collide across DST spring-forward", () => {
+    // Europe/London springs forward on 2025-03-30; a local-midnight formula
+    // (`localMidnight.getTime() / 86_400_000`) buckets Mar 30 and Mar 31
+    // together because consecutive local midnights are only 23h apart.
+    const mar30 = getDailyPrompt(new Date(2025, 2, 30));
+    const mar31 = getDailyPrompt(new Date(2025, 2, 31));
+    expect(mar30).not.toBe(mar31);
+  });
 });
