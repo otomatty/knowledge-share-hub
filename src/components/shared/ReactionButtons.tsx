@@ -64,7 +64,7 @@ export function ReactionButtons({
   const isSmall = size === 'sm';
 
   if (variant === 'distribution') {
-    return <ReactionDistribution reactions={localReactions} size={size} />;
+    return <ReactionDistribution reactions={reactions} size={size} />;
   }
 
   return (
@@ -132,17 +132,19 @@ function ReactionDistribution({
         return (
           <Tooltip key={type}>
             <TooltipTrigger asChild>
-              <div
-                className={`${DISTRIBUTION_COLORS[type]} flex items-center justify-center gap-0.5 min-w-0 transition-all ${isSmall ? 'text-xs' : 'text-sm'}`}
+              <button
+                type="button"
+                aria-label={`${emoji} ${label}: ${count}件`}
+                className={`${DISTRIBUTION_COLORS[type]} flex items-center justify-center gap-0.5 min-w-0 overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isSmall ? 'text-xs' : 'text-sm'}`}
                 style={{ width: `${pct}%` }}
               >
-                <span className="shrink-0">{emoji}</span>
+                {pct >= 10 && <span className="shrink-0">{emoji}</span>}
                 {pct >= 20 && (
                   <span className="truncate font-medium">
                     {Math.round(pct)}%
                   </span>
                 )}
-              </div>
+              </button>
             </TooltipTrigger>
             <TooltipContent>
               {emoji} {label}: {count}件
