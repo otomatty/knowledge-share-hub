@@ -1,9 +1,10 @@
 import { Link, useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { ContentReactions } from "@/components/shared/ContentReactions";
 import { CommentSection } from "@/components/shared/CommentSection";
+import { TagBadgeLink } from "@/components/shared/TagBadgeLink";
+import { sortTagsByCategory } from "@/lib/tag-utils";
 import { useTipByIdMapped } from "@/hooks/use-domain-queries";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -77,15 +78,8 @@ export default function TipDetail() {
 
         {tip.tags.length > 0 && (
           <div className="flex gap-1.5 mb-4 flex-wrap">
-            {tip.tags.map((tag) => (
-              <Link key={tag.id} to={`/search?tag=${encodeURIComponent(tag.name)}`}>
-                <Badge
-                  variant="secondary"
-                  className="text-xs hover:bg-primary/10"
-                >
-                  {tag.name}
-                </Badge>
-              </Link>
+            {sortTagsByCategory(tip.tags).map((tag) => (
+              <TagBadgeLink key={tag.id} tag={tag} />
             ))}
           </div>
         )}

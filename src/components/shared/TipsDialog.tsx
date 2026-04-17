@@ -9,9 +9,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { ContextTagPicker } from "@/components/shared/ContextTagPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTags } from "@/hooks/use-supabase-query";
 import { supabase } from "@/lib/supabase";
+import type { Tag } from "@/types";
 import { toast } from "sonner";
 
 interface TipsDialogProps {
@@ -25,6 +27,7 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
   const { data: dbTags = [] } = useTags();
   const [content, setContent] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [contextTag, setContextTag] = useState<Tag | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -60,14 +63,26 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
       return;
     }
 
+    if (contextTag) {
+      const { error: ctxErr } = await supabase.from("tip_tags").insert({
+        tip_id: tip.id,
+        tag_id: contextTag.id,
+      });
+      if (ctxErr) {
+        console.error("Failed to insert context tag:", ctxErr);
+      }
+    }
+
     for (const name of selectedTags) {
       let tagId = dbTags.find(
-        (t) => t.name.toLowerCase() === name.toLowerCase(),
+        (t) =>
+          t.category === "tech" &&
+          t.name.toLowerCase() === name.toLowerCase(),
       )?.id;
       if (!tagId) {
         const { data: created } = await supabase
           .from("tags")
-          .insert({ name })
+          .insert({ name, category: "tech" })
           .select()
           .single();
         tagId = created?.id;
@@ -83,6 +98,7 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
     queryClient.invalidateQueries({ queryKey: ["tips"] });
     setContent("");
     setSelectedTags([]);
+    setContextTag(null);
     setIsAnonymous(false);
     setSubmitting(false);
     onOpenChange(false);
@@ -90,7 +106,7 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
   };
 
   const remaining = 140 - content.length;
-  const tagChoices = dbTags.slice(0, 8);
+  const tagChoices = dbTags.filter((t) => t.category === "tech").slice(0, 8);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,7 +132,14 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
           </div>
 
           <div>
-            <p className="text-xs text-muted-foreground mb-2">タグ（任意）</p>
+            <p className="text-xs text-muted-foreground mb-2">
+              気づきの種類（任意・1つ選択）
+            </p>
+            <ContextTagPicker value={contextTag} onChange={setContextTag} />
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">技術タグ（任意）</p>
             <div className="flex flex-wrap gap-1.5">
               {tagChoices.map((tag) => (
                 <Badge

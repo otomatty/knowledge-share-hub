@@ -165,14 +165,21 @@ export function useTrendingTags() {
     queryKey: ["tags", "trending"],
     queryFn: async () => {
       const rows = await fetchTagUsageCounts();
-      return rows
+      const mapped = rows
         .filter((r) => r.count > 0)
         .sort((a, b) => b.count - a.count)
-        .slice(0, 8)
         .map((r) => ({
-          tag: { id: r.tag_id, name: r.name } satisfies Tag,
+          tag: {
+            id: r.tag_id,
+            name: r.name,
+            category: r.category,
+          } satisfies Tag,
           count: r.count,
         }));
+      return {
+        tech: mapped.filter((r) => r.tag.category === "tech").slice(0, 8),
+        context: mapped.filter((r) => r.tag.category === "context").slice(0, 8),
+      };
     },
   });
 }

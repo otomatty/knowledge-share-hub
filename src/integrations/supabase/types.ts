@@ -93,16 +93,19 @@ export type Database = {
         Row: {
           id: string;
           name: string;
+          category: "tech" | "context";
           created_at: string;
         };
         Insert: {
           id?: string;
           name: string;
+          category?: "tech" | "context";
           created_at?: string;
         };
         Update: {
           id?: string;
           name?: string;
+          category?: "tech" | "context";
           created_at?: string;
         };
       };

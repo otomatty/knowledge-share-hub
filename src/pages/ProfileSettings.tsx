@@ -37,10 +37,14 @@ export default function ProfileSettings() {
     });
     setSkillTags(
       (profile.skill_tags ?? []).map((name) => {
-        const found = dbTags.find((t) => t.name === name);
+        // Skill tags are always tech-category; match by name + category so a
+        // context tag that happens to share a name can't reintroduce itself.
+        const found = dbTags.find(
+          (t) => t.name === name && t.category === "tech",
+        );
         return found
-          ? { id: found.id, name: found.name }
-          : { id: `local-${name}`, name };
+          ? { id: found.id, name: found.name, category: "tech" as const }
+          : { id: `local-${name}`, name, category: "tech" as const };
       }),
     );
   }, [profile, dbTags]);
