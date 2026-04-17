@@ -62,9 +62,11 @@ export async function fetchReactionCountsReceivedByAuthors(): Promise<
 }
 
 export async function fetchTagUsageCounts(): Promise<
-  { tag_id: string; name: string; count: number }[]
+  { tag_id: string; name: string; category: "tech" | "context"; count: number }[]
 > {
-  const { data: tags, error: te } = await supabase.from("tags").select("id, name");
+  const { data: tags, error: te } = await supabase
+    .from("tags")
+    .select("id, name, category");
   if (te) throw te;
   if (!tags?.length) return [];
 
@@ -79,6 +81,7 @@ export async function fetchTagUsageCounts(): Promise<
   return tags.map((t) => ({
     tag_id: t.id as string,
     name: t.name as string,
+    category: t.category as "tech" | "context",
     count: countMap.get(t.id as string) ?? 0,
   }));
 }

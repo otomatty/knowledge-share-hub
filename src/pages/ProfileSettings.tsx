@@ -39,8 +39,8 @@ export default function ProfileSettings() {
       (profile.skill_tags ?? []).map((name) => {
         const found = dbTags.find((t) => t.name === name);
         return found
-          ? { id: found.id, name: found.name }
-          : { id: `local-${name}`, name };
+          ? { id: found.id, name: found.name, category: found.category }
+          : { id: `local-${name}`, name, category: "tech" as const };
       }),
     );
   }, [profile, dbTags]);

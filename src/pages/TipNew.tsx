@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { TagInput } from "@/components/shared/TagInput";
+import { ContextTagPicker } from "@/components/shared/ContextTagPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import type { Tag } from "@/types";
@@ -18,6 +19,7 @@ export default function TipNew() {
   const { profile } = useAuth();
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
+  const [contextTag, setContextTag] = useState<Tag | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -46,10 +48,14 @@ export default function TipNew() {
       return;
     }
 
-    for (const t of tags) {
+    const allTagIds = [
+      ...(contextTag ? [contextTag.id] : []),
+      ...tags.map((t) => t.id),
+    ];
+    for (const tagId of allTagIds) {
       await supabase.from("tip_tags").insert({
         tip_id: tip.id,
-        tag_id: t.id,
+        tag_id: tagId,
       });
     }
 
@@ -78,7 +84,11 @@ export default function TipNew() {
             </p>
           </div>
           <div className="space-y-2">
-            <Label>タグ</Label>
+            <Label>気づきの種類（任意・1つ選択）</Label>
+            <ContextTagPicker value={contextTag} onChange={setContextTag} />
+          </div>
+          <div className="space-y-2">
+            <Label>技術タグ</Label>
             <TagInput selectedTags={tags} onChange={setTags} />
           </div>
           <div className="flex items-center gap-2">

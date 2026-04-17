@@ -20,6 +20,7 @@ function tagsFromJoins(
   return rows.map((r) => ({
     id: r.tag.id,
     name: r.tag.name,
+    category: r.tag.category,
   }));
 }
 

@@ -15,10 +15,22 @@ export interface User {
   created_at: string;
 }
 
+export type TagCategory = 'tech' | 'context';
+
 export interface Tag {
   id: string;
   name: string;
+  category: TagCategory;
 }
+
+export const CONTEXT_TAG_PRESETS: readonly string[] = [
+  '#今日の学び',
+  '#ハマった',
+  '#逆に気づいた',
+  '#違和感',
+  '#試してみたい',
+  '#振り返り',
+] as const;
 
 export interface Tip {
   id: string;

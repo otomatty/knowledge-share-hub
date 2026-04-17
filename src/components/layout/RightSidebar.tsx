@@ -12,7 +12,10 @@ import {
 
 export function RightSidebar() {
   const { data: tips = [], isLoading: tipLoading } = useTipsMapped();
-  const { data: trendingTags = [], isLoading: tagLoading } = useTrendingTags();
+  const {
+    data: trendingTags = { tech: [], context: [] },
+    isLoading: tagLoading,
+  } = useTrendingTags();
   const { data: weeklyRanking = [], isLoading: rankLoading } =
     useWeeklyUserRanking();
 
@@ -73,16 +76,47 @@ export function RightSidebar() {
         </CardContent>
       </Card>
 
+      {trendingTags.context.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Hash className="h-4 w-4 text-kh-purple" />
+              気づきの種類
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {trendingTags.context.map(({ tag, count }) => (
+                <Link
+                  key={tag.id}
+                  to={`/search?tag=${encodeURIComponent(tag.name)}`}
+                >
+                  <Badge
+                    variant="outline"
+                    className="border-kh-purple/40 text-kh-purple hover:bg-kh-purple/10 cursor-pointer"
+                  >
+                    {tag.name}
+                    <span className="ml-1 text-muted-foreground text-[10px]">
+                      {count}
+                    </span>
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <Hash className="h-4 w-4 text-primary" />
-            注目のタグ
+            注目の技術タグ
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {trendingTags.map(({ tag, count }) => (
+            {trendingTags.tech.map(({ tag, count }) => (
               <Link key={tag.id} to={`/search?tag=${encodeURIComponent(tag.name)}`}>
                 <Badge
                   variant="secondary"

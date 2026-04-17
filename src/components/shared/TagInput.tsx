@@ -27,6 +27,7 @@ export function TagInput({
   const suggestions = dbTags
     .filter(
       (t) =>
+        t.category === "tech" &&
         t.name.toLowerCase().includes(query.toLowerCase()) &&
         !selectedTags.find((s) => s.id === t.id),
     )
@@ -47,22 +48,24 @@ export function TagInput({
     if (e.key === "Enter" && query.trim()) {
       e.preventDefault();
       const existing = dbTags.find(
-        (t) => t.name.toLowerCase() === query.trim().toLowerCase(),
+        (t) =>
+          t.category === "tech" &&
+          t.name.toLowerCase() === query.trim().toLowerCase(),
       );
       if (existing) {
-        addTag({ id: existing.id, name: existing.name });
+        addTag({ id: existing.id, name: existing.name, category: "tech" });
         return;
       }
       const { data, error } = await supabase
         .from("tags")
-        .insert({ name: query.trim() })
+        .insert({ name: query.trim(), category: "tech" })
         .select()
         .single();
       if (error) {
         return;
       }
       queryClient.invalidateQueries({ queryKey: ["tags"] });
-      addTag({ id: data.id, name: data.name });
+      addTag({ id: data.id, name: data.name, category: "tech" });
     }
   };
 
@@ -102,7 +105,9 @@ export function TagInput({
               key={tag.id}
               type="button"
               className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted"
-              onMouseDown={() => addTag({ id: tag.id, name: tag.name })}
+              onMouseDown={() =>
+                addTag({ id: tag.id, name: tag.name, category: "tech" })
+              }
             >
               {tag.name}
             </button>
