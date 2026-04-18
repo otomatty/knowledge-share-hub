@@ -41,9 +41,9 @@ begin
   end if;
 
   -- Only run side effects when result_tip_id is being set for the
-  -- first time. Everything below is unchanged from 00009 except for
-  -- this early-return which is now redundant with the guard above
-  -- but kept for clarity.
+  -- first time. The guard above rejects swaps (R1 → R2); the two
+  -- early-returns below still handle the "no result yet" (null) and
+  -- the idempotent (R1 → R1) cases that aren't swaps.
   if new.result_tip_id is null then
     return new;
   end if;
