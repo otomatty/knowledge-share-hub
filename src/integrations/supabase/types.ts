@@ -211,7 +211,12 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          type: "reaction" | "comment" | "reply";
+          type:
+            | "reaction"
+            | "comment"
+            | "reply"
+            | "try_it_followup"
+            | "try_it_result";
           content_type: "tip";
           content_id: string;
           actor_id: string;
@@ -222,7 +227,12 @@ export type Database = {
         Insert: {
           id?: string;
           user_id: string;
-          type: "reaction" | "comment" | "reply";
+          type:
+            | "reaction"
+            | "comment"
+            | "reply"
+            | "try_it_followup"
+            | "try_it_result";
           content_type: "tip";
           content_id: string;
           actor_id: string;
@@ -233,13 +243,47 @@ export type Database = {
         Update: {
           id?: string;
           user_id?: string;
-          type?: "reaction" | "comment" | "reply";
+          type?:
+            | "reaction"
+            | "comment"
+            | "reply"
+            | "try_it_followup"
+            | "try_it_result";
           content_type?: "tip";
           content_id?: string;
           actor_id?: string;
           is_read?: boolean;
           message?: string;
           created_at?: string;
+        };
+      };
+      tip_attempts: {
+        Row: {
+          id: string;
+          source_tip_id: string;
+          result_tip_id: string | null;
+          user_id: string;
+          pledged_at: string;
+          completed_at: string | null;
+          follow_up_notified_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          source_tip_id: string;
+          result_tip_id?: string | null;
+          user_id: string;
+          pledged_at?: string;
+          completed_at?: string | null;
+          follow_up_notified_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          source_tip_id?: string;
+          result_tip_id?: string | null;
+          user_id?: string;
+          pledged_at?: string;
+          completed_at?: string | null;
+          follow_up_notified_at?: string | null;
         };
       };
     };
