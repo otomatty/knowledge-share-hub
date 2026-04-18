@@ -26,13 +26,28 @@ export interface TipAttemptWithRefs {
   resultTip: Tip | null;
 }
 
+/** Default page size for the tried-by list on TipDetail. */
+export const TIP_ATTEMPTS_PAGE_SIZE = 50;
+
 /**
  * All attempts against a given source tip — used by TipDetail to render
  * "people who tried this" and "results from this tip".
+ *
+ * Paginated: returns at most `limit` rows starting at `offset`. The
+ * default page size is deliberately generous (50) because the usual tip
+ * will have a handful of attempts at most, but this caps worst-case
+ * payload size (and the hydration fan-out for result tips) if a tip
+ * goes viral.
  */
-export function useTipAttemptsForSource(sourceTipId: string | undefined) {
+export function useTipAttemptsForSource(
+  sourceTipId: string | undefined,
+  {
+    limit = TIP_ATTEMPTS_PAGE_SIZE,
+    offset = 0,
+  }: { limit?: number; offset?: number } = {},
+) {
   return useQuery({
-    queryKey: ["tip-attempts", "source", sourceTipId],
+    queryKey: ["tip-attempts", "source", sourceTipId, limit, offset],
     enabled: !!sourceTipId,
     queryFn: async (): Promise<TipAttemptWithRefs[]> => {
       const { data, error } = await supabase
@@ -47,7 +62,8 @@ export function useTipAttemptsForSource(sourceTipId: string | undefined) {
             )`,
         )
         .eq("source_tip_id", sourceTipId!)
-        .order("pledged_at", { ascending: false });
+        .order("pledged_at", { ascending: false })
+        .range(offset, offset + limit - 1);
       if (error) throw error;
 
       type Row = TipAttempt & {
@@ -183,6 +199,11 @@ export function useSourceAttemptForResult(resultTipId: string | undefined) {
  * Uses INSERT ... ON CONFLICT DO UPDATE so the flow also works when the
  * user skipped the 🔁 reaction and went straight from a source-tip CTA
  * to posting a result — no prior attempt row exists in that case.
+ *
+ * `completed_at` and the `try_it_result` notification to the source tip's
+ * author are posted atomically by the `handle_tip_attempt_result` DB
+ * trigger (migration 00009). The client stays oblivious to that side of
+ * the loop.
  */
 export function useLinkTipAttemptResult() {
   const queryClient = useQueryClient();
@@ -194,7 +215,6 @@ export function useLinkTipAttemptResult() {
       resultTipId: string;
     }) => {
       const { sourceTipId, userId, resultTipId } = params;
-      const now = new Date().toISOString();
       const { error } = await supabase
         .from("tip_attempts")
         .upsert(
@@ -202,7 +222,6 @@ export function useLinkTipAttemptResult() {
             source_tip_id: sourceTipId,
             user_id: userId,
             result_tip_id: resultTipId,
-            completed_at: now,
           },
           { onConflict: "source_tip_id,user_id" },
         );

@@ -78,33 +78,20 @@ export default function TipNew() {
       }
     }
 
-    // If this post is a "result of trying" another tip, link them together
-    // and notify the source tip's author that their insight produced a result.
-    if (sourceTipId && sourceTip) {
+    // If this post is a "result of trying" another tip, link them together.
+    // `completed_at` and the `try_it_result` notification to the source tip's
+    // author are posted atomically by the `handle_tip_attempt_result` DB
+    // trigger (migration 00009) so a single upsert covers the whole lineage.
+    if (sourceTipId) {
       try {
         await linkAttempt.mutateAsync({
           sourceTipId,
           userId: profile.id,
           resultTipId: tip.id,
         });
-
-        // Best-effort notification to the source tip author — non-blocking.
-        if (sourceTip.author.id !== profile.id) {
-          const actorName = isAnonymous
-            ? "名無しエンジニア"
-            : profile.display_name;
-          await supabase.from("notifications").insert({
-            user_id: sourceTip.author.id,
-            type: "try_it_result",
-            content_type: "tip",
-            content_id: tip.id,
-            actor_id: profile.id,
-            message: `${actorName}さんがあなたの気づきを試した結果を投稿しました`,
-          });
-        }
       } catch (linkErr) {
         // Don't fail the whole submission if the link-up hiccups — the tip is
-        // already saved. Just surface the issue so the user can retry.
+        // already saved. Surface the issue so the user can retry later.
         console.error("Failed to link tip attempt:", linkErr);
         toast.error("派生元との紐付けに失敗しました");
       }
