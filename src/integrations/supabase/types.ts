@@ -287,7 +287,24 @@ export type Database = {
         };
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      // Read-only view exposing tip_attempts with `user_id` masked to
+      // NULL when the viewer isn't the owner and the linked result tip
+      // is anonymous (migration 00019). SELECT on the underlying
+      // `tip_attempts` table is revoked from authenticated/anon, so
+      // this is the sole read path for clients.
+      tip_attempts_public: {
+        Row: {
+          id: string;
+          source_tip_id: string;
+          result_tip_id: string | null;
+          user_id: string | null;
+          pledged_at: string;
+          completed_at: string | null;
+          follow_up_notified_at: string | null;
+        };
+      };
+    };
     Functions: Record<string, never>;
     Enums: {
       content_status: "draft" | "published";
