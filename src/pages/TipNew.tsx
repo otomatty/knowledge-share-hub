@@ -36,8 +36,20 @@ export default function TipNew() {
   } = useTipByIdMapped(sourceTipId);
   const linkAttempt = useLinkTipAttemptResult();
 
+  // TipDetail hides the CTA with `!isOwnTip`, but a user can still
+  // navigate to /tips/new?source=<own_tip_id> manually. The DB trigger
+  // `guard_tip_attempt_no_self` (migration 00010) would reject the
+  // upsert, but only after the tip itself is already saved — leaving
+  // an orphaned tip. Block it upfront so the submit button is disabled
+  // and no tip is created.
+  const isSelfDerived =
+    !!sourceTipId &&
+    !!sourceTip &&
+    !!profile &&
+    sourceTip.author.id === profile.id;
   const sourceUnavailable =
-    !!sourceTipId && (sourceLoading || sourceError || !sourceTip);
+    !!sourceTipId &&
+    (sourceLoading || sourceError || !sourceTip || isSelfDerived);
 
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
@@ -62,6 +74,13 @@ export default function TipNew() {
       } else {
         toast.error("派生元の気づきが見つかりません");
       }
+      return;
+    }
+    // Self-derived guard: the DB rejects these attempts, but the tip
+    // row would already have been created by the time the linkAttempt
+    // mutation runs. Block pre-insert so we don't orphan a tip.
+    if (isSelfDerived) {
+      toast.error("自分の気づきを派生元にはできません");
       return;
     }
     setSubmitting(true);
@@ -178,6 +197,11 @@ export default function TipNew() {
           {sourceTipId && (sourceError || (!sourceLoading && !sourceTip)) && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
               派生元の気づきが見つかりません。URL が正しいか確認してください。
+            </div>
+          )}
+          {isSelfDerived && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
+              自分の気づきを派生元にはできません。他の人の気づきから「試した結果」を投稿してください。
             </div>
           )}
           {!sourceTipId && (
