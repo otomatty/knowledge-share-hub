@@ -159,26 +159,50 @@ export default function TipDetail() {
             この気づきから試した人 ({triedBy.length})
           </h2>
           <ul className="flex flex-wrap gap-3">
-            {triedBy.map(({ attempt, user }) => (
-              <li key={attempt.id} className="flex items-center gap-2">
-                <Link
-                  to={`/users/${user.username}`}
-                  className="flex items-center gap-2 hover:text-primary"
-                >
+            {triedBy.map(({ attempt, user, resultTip }) => {
+              // If the linked result tip is anonymous, masking the
+              // trier's identity here too — otherwise a viewer can
+              // correlate "only pledger with 結果あり" with the single
+              // anonymous result card in the section below and
+              // de-anonymize the post. Mirror the convention used by
+              // ContentCard / notifications for `is_anonymous` tips.
+              const maskIdentity = resultTip?.is_anonymous === true;
+              const displayName = maskIdentity
+                ? "名無しエンジニア"
+                : user.display_name;
+              const initial = maskIdentity
+                ? "匿"
+                : (user.display_name[0] ?? "?");
+              const identity = (
+                <>
                   <Avatar className="h-7 w-7">
                     <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                      {user.display_name[0] ?? "?"}
+                      {initial}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{user.display_name}</span>
-                </Link>
-                {attempt.result_tip_id && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                    結果あり
-                  </span>
-                )}
-              </li>
-            ))}
+                  <span className="text-sm">{displayName}</span>
+                </>
+              );
+              return (
+                <li key={attempt.id} className="flex items-center gap-2">
+                  {maskIdentity ? (
+                    <div className="flex items-center gap-2">{identity}</div>
+                  ) : (
+                    <Link
+                      to={`/users/${user.username}`}
+                      className="flex items-center gap-2 hover:text-primary"
+                    >
+                      {identity}
+                    </Link>
+                  )}
+                  {attempt.result_tip_id && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                      結果あり
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
