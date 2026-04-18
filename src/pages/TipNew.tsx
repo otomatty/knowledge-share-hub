@@ -26,8 +26,18 @@ export default function TipNew() {
 
   // If ?source=<id> is present we render a "derived-from" banner and, on
   // submit, link the newly posted tip back to the source via tip_attempts.
-  const { data: sourceTip } = useTipByIdMapped(sourceTipId);
+  // We also need to gate submission on the source-tip query resolving: a
+  // bogus / deleted id would let the user believe a result was posted even
+  // though the lineage link never lands.
+  const {
+    data: sourceTip,
+    isLoading: sourceLoading,
+    isError: sourceError,
+  } = useTipByIdMapped(sourceTipId);
   const linkAttempt = useLinkTipAttemptResult();
+
+  const sourceUnavailable =
+    !!sourceTipId && (sourceLoading || sourceError || !sourceTip);
 
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
@@ -40,6 +50,18 @@ export default function TipNew() {
     e.preventDefault();
     if (!content.trim() || !profile) {
       toast.error("ログインが必要です");
+      return;
+    }
+    // In "derived-from" mode, block until we've confirmed the source tip
+    // actually exists. Without this, a stale / deleted ?source=<id> would
+    // silently post a standalone tip and still claim "試した結果を投稿
+    // しました".
+    if (sourceTipId && !sourceTip) {
+      if (sourceLoading) {
+        toast.error("派生元の読み込み中です。少し待ってから再度お試しください");
+      } else {
+        toast.error("派生元の気づきが見つかりません");
+      }
       return;
     }
     setSubmitting(true);
@@ -148,6 +170,16 @@ export default function TipNew() {
               </p>
             </div>
           )}
+          {sourceTipId && sourceLoading && (
+            <div className="rounded-lg border px-4 py-3 text-xs text-muted-foreground">
+              派生元の気づきを読み込み中…
+            </div>
+          )}
+          {sourceTipId && (sourceError || (!sourceLoading && !sourceTip)) && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
+              派生元の気づきが見つかりません。URL が正しいか確認してください。
+            </div>
+          )}
           {!sourceTipId && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
               <p className="text-xs text-muted-foreground mb-1">今日のお題</p>
@@ -192,7 +224,10 @@ export default function TipNew() {
             <Label htmlFor="anonymous">匿名で投稿する</Label>
           </div>
           <div className="flex gap-2">
-            <Button type="submit" disabled={!content.trim() || submitting}>
+            <Button
+              type="submit"
+              disabled={!content.trim() || submitting || sourceUnavailable}
+            >
               {submitting ? "投稿中…" : "投稿する"}
             </Button>
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
