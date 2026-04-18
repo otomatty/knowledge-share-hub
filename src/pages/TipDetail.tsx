@@ -72,14 +72,18 @@ export default function TipDetail() {
   const results = attempts.filter((a) => a.resultTip !== null);
 
   const isOwnTip = profile?.id === tip.author.id;
-  // Show the CTA when the viewer has a pending pledge and hasn't posted the
-  // result yet. Own-tip authors can't pledge (trigger blocks it), so this is
-  // naturally hidden for them.
+  // Show the CTA only for truly pending pledges. `completed_at` is a
+  // one-way latch (migration 00015): once the loop has closed, the
+  // attempt stays "completed" even if the result tip was later deleted
+  // (state `result_tip_id IS NULL && completed_at IS NOT NULL`). Those
+  // rows should not re-trigger the CTA — the DB rejects re-linking
+  // anyway, so a click would only produce an error toast.
   const showPostResultCta =
     profile &&
     !isOwnTip &&
     myAttempt &&
-    myAttempt.result_tip_id === null;
+    myAttempt.result_tip_id === null &&
+    myAttempt.completed_at === null;
 
   return (
     <MainLayout>
