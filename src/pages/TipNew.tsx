@@ -82,6 +82,13 @@ export default function TipNew() {
     // `completed_at` and the `try_it_result` notification to the source tip's
     // author are posted atomically by the `handle_tip_attempt_result` DB
     // trigger (migration 00009) so a single upsert covers the whole lineage.
+    //
+    // The link is attempted whenever `sourceTipId` is present, independent
+    // of whether the source-tip fetch has resolved — the sourceTip data is
+    // only used for the banner. If the link fails we don't want to claim a
+    // result was posted; navigate the user to the newly-saved tip so they
+    // can see what landed and (optionally) retry the lineage later.
+    let linkOk = true;
     if (sourceTipId) {
       try {
         await linkAttempt.mutateAsync({
@@ -90,8 +97,7 @@ export default function TipNew() {
           resultTipId: tip.id,
         });
       } catch (linkErr) {
-        // Don't fail the whole submission if the link-up hiccups — the tip is
-        // already saved. Surface the issue so the user can retry later.
+        linkOk = false;
         console.error("Failed to link tip attempt:", linkErr);
         toast.error("派生元との紐付けに失敗しました");
       }
@@ -99,10 +105,18 @@ export default function TipNew() {
 
     queryClient.invalidateQueries({ queryKey: ["tips"] });
     setSubmitting(false);
-    toast.success(
-      sourceTipId ? "試した結果を投稿しました" : "気づきを投稿しました",
-    );
-    navigate(sourceTipId ? `/tips/${sourceTipId}` : "/tips");
+
+    if (sourceTipId && linkOk) {
+      toast.success("試した結果を投稿しました");
+      navigate(`/tips/${sourceTipId}`);
+    } else if (sourceTipId && !linkOk) {
+      // Tip was saved but lineage didn't land; send the user to their
+      // new tip rather than the source, and skip the success toast.
+      navigate(`/tips/${tip.id}`);
+    } else {
+      toast.success("気づきを投稿しました");
+      navigate("/tips");
+    }
   };
 
   return (
