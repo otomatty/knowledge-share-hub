@@ -219,7 +219,9 @@ export type Database = {
             | "try_it_result";
           content_type: "tip";
           content_id: string;
-          actor_id: string;
+          // Nullable since migration 00020: anonymous try_it_result
+          // notifications store NULL here to preserve anonymity.
+          actor_id: string | null;
           is_read: boolean;
           message: string;
           created_at: string;
@@ -235,7 +237,7 @@ export type Database = {
             | "try_it_result";
           content_type: "tip";
           content_id: string;
-          actor_id: string;
+          actor_id?: string | null;
           is_read?: boolean;
           message: string;
           created_at?: string;
@@ -251,7 +253,7 @@ export type Database = {
             | "try_it_result";
           content_type?: "tip";
           content_id?: string;
-          actor_id?: string;
+          actor_id?: string | null;
           is_read?: boolean;
           message?: string;
           created_at?: string;

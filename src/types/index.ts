@@ -76,7 +76,11 @@ export interface Notification {
   type: NotificationType;
   content_type: ContentType;
   content_id: string;
-  actor: User;
+  // Null when the source action was anonymous (e.g., try_it_result
+  // for a result tip posted with is_anonymous=true) — migration 00020
+  // made `notifications.actor_id` nullable so the source author can't
+  // deanonymise the actor by joining on profiles.
+  actor: User | null;
   is_read: boolean;
   created_at: string;
   message: string;
