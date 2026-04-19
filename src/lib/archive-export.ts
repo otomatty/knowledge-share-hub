@@ -125,6 +125,19 @@ export function toMarkdown(data: ArchiveExportData): string {
           `- リアクション: 🤔${rx.same_thought} 💡${rx.new_view} 🔁${rx.try_it} 📘${rx.learned}`,
         );
       }
+      if (t.status === "draft") {
+        lines.push(`- 状態: 下書き`);
+      } else if (t.published_at) {
+        // Only surface `published_at` when it differs from `created_at`
+        // — for the common case (publish-on-create) the extra line is
+        // noise, but a tip promoted from draft has a real publish date
+        // that the reader of the export will want.
+        const published = new Date(t.published_at).getTime();
+        const created = new Date(t.created_at).getTime();
+        if (Math.abs(published - created) > 60_000) {
+          lines.push(`- 状態: 公開 (${isoDate(t.published_at)})`);
+        }
+      }
       if (t.is_anonymous) {
         lines.push(`- 匿名投稿`);
       }
@@ -156,6 +169,13 @@ export interface ArchiveJsonEntry {
   id: string;
   content: string;
   created_at: string;
+  /**
+   * Published vs draft. Preserved so a backup JSON can round-trip the
+   * distinction — this export includes drafts on purpose, so dropping
+   * `status` would make re-imports silently mark everything published.
+   */
+  status: Tip["status"];
+  published_at: string | null;
   is_anonymous: boolean;
   tags: { name: string; category: "tech" | "context" }[];
   reactions: Tip["reactions"];
@@ -184,6 +204,8 @@ export function toJson(data: ArchiveExportData): string {
       id: e.tip.id,
       content: e.tip.content,
       created_at: e.tip.created_at,
+      status: e.tip.status,
+      published_at: e.tip.published_at ?? null,
       is_anonymous: e.tip.is_anonymous,
       tags: e.tip.tags.map((t) => ({ name: t.name, category: t.category })),
       reactions: e.tip.reactions,

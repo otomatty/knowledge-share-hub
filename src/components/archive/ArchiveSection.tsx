@@ -35,6 +35,13 @@ interface ArchiveSectionProps {
 
 type MonthKey = string; // "YYYY-MM"
 
+// Sentinel used only for the `<Select>` "no filter" option. A null byte
+// can't appear in Postgres `text` values (the driver rejects them), so
+// this can never collide with a real month key or tag name and the
+// public `filter` state can stay `string | null` — the sentinel is an
+// internal detail of the Select contract, not something exports see.
+const NO_FILTER = "\u0000all";
+
 function monthKeyOf(iso: string): MonthKey {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -44,15 +51,28 @@ function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * Format a tag for display/export. Context tags already carry a leading
+ * `#` in seeded data; tech tags don't, so we prefix them here so a
+ * filter-summary label like "#react" reads consistently across both.
+ */
+function formatTagLabel(
+  name: string,
+  category: "tech" | "context",
+): string {
+  if (category === "context") return name;
+  return name.startsWith("#") ? name : `#${name}`;
+}
+
 function buildFilterSummary(params: {
   month: MonthKey | null;
-  tagName: string | null;
+  tagLabel: string | null;
   day: Date | null;
 }): string | undefined {
   const parts: string[] = [];
   if (params.day) parts.push(ymd(params.day));
   else if (params.month) parts.push(params.month);
-  if (params.tagName) parts.push(params.tagName);
+  if (params.tagLabel) parts.push(params.tagLabel);
   return parts.length > 0 ? parts.join(" / ") : undefined;
 }
 
@@ -120,9 +140,15 @@ export function ArchiveSection({ userId, owner }: ArchiveSectionProps) {
     });
   }, [entries, month, tagName, selectedDay]);
 
+  const selectedTagOption = useMemo(
+    () => (tagName ? tagOptions.find((t) => t.name === tagName) : undefined),
+    [tagName, tagOptions],
+  );
   const filterSummary = buildFilterSummary({
     month,
-    tagName,
+    tagLabel: selectedTagOption
+      ? formatTagLabel(selectedTagOption.name, selectedTagOption.category)
+      : null,
     day: selectedDay,
   });
 
@@ -183,9 +209,9 @@ export function ArchiveSection({ userId, owner }: ArchiveSectionProps) {
           <div className="flex-1 space-y-3 mt-4 md:mt-0">
             <div className="flex flex-wrap gap-2 items-center">
               <Select
-                value={month ?? "all"}
+                value={month ?? NO_FILTER}
                 onValueChange={(v) => {
-                  setMonth(v === "all" ? null : v);
+                  setMonth(v === NO_FILTER ? null : v);
                   setSelectedDay(null);
                 }}
               >
@@ -193,7 +219,7 @@ export function ArchiveSection({ userId, owner }: ArchiveSectionProps) {
                   <SelectValue placeholder="月を選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">すべての月</SelectItem>
+                  <SelectItem value={NO_FILTER}>すべての月</SelectItem>
                   {monthOptions.map((m) => (
                     <SelectItem key={m} value={m}>
                       {m}
@@ -203,17 +229,19 @@ export function ArchiveSection({ userId, owner }: ArchiveSectionProps) {
               </Select>
 
               <Select
-                value={tagName ?? "all"}
-                onValueChange={(v) => setTagName(v === "all" ? null : v)}
+                value={tagName ?? NO_FILTER}
+                onValueChange={(v) =>
+                  setTagName(v === NO_FILTER ? null : v)
+                }
               >
                 <SelectTrigger className="w-56">
                   <SelectValue placeholder="タグで絞り込み" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">すべてのタグ</SelectItem>
+                  <SelectItem value={NO_FILTER}>すべてのタグ</SelectItem>
                   {tagOptions.map((t) => (
                     <SelectItem key={t.name} value={t.name}>
-                      {t.category === "context" ? t.name : `#${t.name}`}
+                      {formatTagLabel(t.name, t.category)}
                     </SelectItem>
                   ))}
                 </SelectContent>

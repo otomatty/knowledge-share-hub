@@ -182,6 +182,47 @@ describe("archive-export", () => {
       expect(md).toContain("匿名投稿");
     });
 
+    it("flags drafts with a 状態 line and leaves publish-on-create silent", () => {
+      const draft = toMarkdown(
+        mkData([{ tip: mkTip({ status: "draft" }), addendums: [] }]),
+      );
+      expect(draft).toContain("状態: 下書き");
+
+      // Tip created and published at the same moment — the archive is a
+      // personal backup, not a publish log, so the noise of redundant
+      // "公開 (same-date)" lines isn't worth it.
+      const samePublished = toMarkdown(
+        mkData([
+          {
+            tip: mkTip({
+              status: "published",
+              created_at: "2026-03-15T10:00:00.000Z",
+              published_at: "2026-03-15T10:00:00.500Z",
+            }),
+            addendums: [],
+          },
+        ]),
+      );
+      expect(samePublished).not.toContain("状態:");
+    });
+
+    it("shows publish date for tips promoted from draft", () => {
+      // created_at well before published_at → draft promoted later.
+      const promoted = toMarkdown(
+        mkData([
+          {
+            tip: mkTip({
+              status: "published",
+              created_at: "2026-03-15T10:00:00.000Z",
+              published_at: "2026-04-02T08:30:00.000Z",
+            }),
+            addendums: [],
+          },
+        ]),
+      );
+      expect(promoted).toContain("状態: 公開 (2026-04-02)");
+    });
+
     it("surfaces filter summary in the header when provided", () => {
       const md = toMarkdown({
         ...mkData([]),
@@ -220,6 +261,36 @@ describe("archive-export", () => {
       const json = toJson(mkData([{ tip: mkTip(), addendums: [] }]));
       expect(json).toContain('"source_tip_id": null');
       expect(json).toContain('"result_tip_id": null');
+    });
+
+    it("preserves status and published_at so drafts survive a round-trip", () => {
+      const json = toJson(
+        mkData([
+          {
+            tip: mkTip({
+              status: "draft",
+              // A draft has no published_at — export that as null, not
+              // as a silent fallback to `created_at` which would mark
+              // the row "looks published" on re-import.
+              published_at: undefined,
+            }),
+            addendums: [],
+          },
+          {
+            tip: mkTip({
+              id: "t2",
+              status: "published",
+              published_at: "2026-03-15T12:00:00.000Z",
+            }),
+            addendums: [],
+          },
+        ]),
+      );
+      const parsed = JSON.parse(json);
+      expect(parsed.entries[0].status).toBe("draft");
+      expect(parsed.entries[0].published_at).toBeNull();
+      expect(parsed.entries[1].status).toBe("published");
+      expect(parsed.entries[1].published_at).toBe("2026-03-15T12:00:00.000Z");
     });
   });
 
