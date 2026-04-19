@@ -232,7 +232,7 @@ export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
             </Button>
             <Button
               onClick={handleAppend}
-              disabled={!addendum.trim() || append.isPending || ack.isPending}
+              disabled={!addendum.trim() || append.isPending}
             >
               {append.isPending ? "追記中…" : "追記する"}
             </Button>
