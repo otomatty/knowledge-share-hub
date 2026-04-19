@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { fetchAllPages } from "@/lib/supabase-pagination";
+import { fetchAllPagesChunked } from "@/lib/supabase-pagination";
 import type { ReactionSummary } from "@/types";
 
 export const emptyReactionSummary = (): ReactionSummary => ({
@@ -16,22 +16,20 @@ export async function fetchReactionSummaries(
   const out: Record<string, ReactionSummary> = {};
   if (contentIds.length === 0) return out;
 
-  // Page through matching reactions. A single un-paginated read
-  // truncates at the PostgREST row cap, which would silently
-  // under-count reactions for any content set that happens to have
-  // more than ~1000 total rows of reactions (common once the archive
-  // feature exports across a power user's whole history). Order by
-  // `id` only — this is a pure aggregate, so the order just needs to
-  // be stable across pages, not chronological.
-  const rows = await fetchAllPages<{
+  // Page + chunk. A single un-paginated read truncates at the
+  // PostgREST row cap, and a single `.in(contentIds)` for a very
+  // large contentIds list blows past URL-length limits in the
+  // reverse proxy. Order by `id` only — this is a pure aggregate, so
+  // the order just needs to be stable across pages, not chronological.
+  const rows = await fetchAllPagesChunked<{
     content_id: string;
     reaction_type: string;
-  }>((from, to) =>
+  }>(contentIds, (chunk, from, to) =>
     supabase
       .from("reactions")
       .select("content_id, reaction_type")
       .eq("content_type", contentType)
-      .in("content_id", contentIds)
+      .in("content_id", chunk)
       .order("id", { ascending: true })
       .range(from, to),
   );
@@ -80,14 +78,16 @@ export async function fetchCommentCounts(
   if (contentIds.length === 0) return out;
   for (const id of contentIds) out[id] = 0;
 
-  const rows = await fetchAllPages<{ content_id: string }>((from, to) =>
-    supabase
-      .from("comments")
-      .select("content_id")
-      .eq("content_type", contentType)
-      .in("content_id", contentIds)
-      .order("id", { ascending: true })
-      .range(from, to),
+  const rows = await fetchAllPagesChunked<{ content_id: string }>(
+    contentIds,
+    (chunk, from, to) =>
+      supabase
+        .from("comments")
+        .select("content_id")
+        .eq("content_type", contentType)
+        .in("content_id", chunk)
+        .order("id", { ascending: true })
+        .range(from, to),
   );
   for (const row of rows) {
     const cid = row.content_id;

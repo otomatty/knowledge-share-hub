@@ -5,7 +5,10 @@ import {
   fetchCommentCounts,
   fetchReactionSummaries,
 } from "@/lib/reaction-aggregates";
-import { fetchAllPages } from "@/lib/supabase-pagination";
+import {
+  fetchAllPages,
+  fetchAllPagesChunked,
+} from "@/lib/supabase-pagination";
 import { mapTipRow, type TipWithJoins } from "@/lib/supabase-mappers";
 import type { ArchiveEntry } from "@/lib/archive-export";
 import type { TipAddendum } from "@/hooks/use-tip-resurfacings";
@@ -32,6 +35,14 @@ import type { TipAddendum } from "@/hooks/use-tip-resurfacings";
  * `attemptsByResult` has no natural chronological sort and only feeds
  * a lookup Map, so it orders by `id` alone — the goal there is
  * page-boundary stability, not presentation order.
+ *
+ * Queries that filter on a large `.in(tipIds)` list also route
+ * through `fetchAllPagesChunked`. The archive caps at 10k entries
+ * (see `archive-export`'s MAX_EXPORT_ENTRIES), and `.in(10_000_ids)`
+ * would inline ~400 KB of UUIDs into the request URL — past the 8 KB
+ * that common reverse proxies accept on the request line, surfacing
+ * as HTTP 414 (PR #28 codex). Chunking keeps every request URL
+ * bounded regardless of archive size.
  */
 
 export function useUserArchive(userId: string | undefined) {
@@ -65,42 +76,42 @@ export function useUserArchive(userId: string | undefined) {
         await Promise.all([
           fetchReactionSummaries("tip", tipIds),
           fetchCommentCounts("tip", tipIds),
-          fetchAllPages<{
+          fetchAllPagesChunked<{
             id: string;
             tip_id: string;
             author_id: string;
             content: string;
             created_at: string;
-          }>((from, to) =>
+          }>(tipIds, (chunk, from, to) =>
             supabase
               .from("tip_addendums")
               .select("id, tip_id, author_id, content, created_at")
-              .in("tip_id", tipIds)
+              .in("tip_id", chunk)
               .order("created_at", { ascending: true })
               .order("id", { ascending: true })
               .range(from, to),
           ),
-          fetchAllPages<{
+          fetchAllPagesChunked<{
             source_tip_id: string;
             result_tip_id: string | null;
             pledged_at: string;
-          }>((from, to) =>
+          }>(tipIds, (chunk, from, to) =>
             supabase
               .from("tip_attempts_public")
               .select("id, source_tip_id, result_tip_id, pledged_at")
-              .in("source_tip_id", tipIds)
+              .in("source_tip_id", chunk)
               .order("pledged_at", { ascending: true })
               .order("id", { ascending: true })
               .range(from, to),
           ),
-          fetchAllPages<{
+          fetchAllPagesChunked<{
             source_tip_id: string;
             result_tip_id: string | null;
-          }>((from, to) =>
+          }>(tipIds, (chunk, from, to) =>
             supabase
               .from("tip_attempts_public")
               .select("id, source_tip_id, result_tip_id")
-              .in("result_tip_id", tipIds)
+              .in("result_tip_id", chunk)
               .order("id", { ascending: true })
               .range(from, to),
           ),

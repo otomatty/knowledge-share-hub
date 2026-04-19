@@ -56,3 +56,49 @@ export async function fetchAllPages<T>(
     }
   }
 }
+
+/**
+ * Default chunk size for `.in(ids)` queries. PostgREST encodes the
+ * list inline in the request URL, and common reverse-proxy limits
+ * (nginx / Kong default to 8KB for the request line) kick in around
+ * 150-200 UUIDs. 100 gives ~5KB of IN-list bytes with comfortable
+ * headroom for the rest of the URL.
+ */
+export const DEFAULT_IN_CHUNK_SIZE = 100;
+
+/**
+ * Page through a query whose filter uses `.in(column, ids)` where
+ * `ids` can be arbitrarily large. Splits `ids` into bounded chunks so
+ * the generated URL stays under reverse-proxy limits (PR #28 codex),
+ * runs each chunk in parallel, then concatenates.
+ *
+ * Each chunk is independently paginated via `fetchAllPages`, so the
+ * per-chunk row ceiling and ordering contract carry through. Callers
+ * still MUST provide a stable total-order (timestamp + `id`
+ * tie-breaker) inside the builder. Chunks run in parallel — order of
+ * the combined output is "chunk-0 rows, then chunk-1 rows, …" which
+ * preserves per-chunk order but not cross-chunk chronology; callers
+ * that need strict global order should sort the result themselves.
+ */
+export async function fetchAllPagesChunked<T>(
+  ids: string[],
+  build: (
+    chunkIds: string[],
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: PostgrestError | null }>,
+  opts: { chunkSize?: number } = {},
+): Promise<T[]> {
+  const chunkSize = opts.chunkSize ?? DEFAULT_IN_CHUNK_SIZE;
+  if (ids.length === 0) return [];
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    chunks.push(ids.slice(i, i + chunkSize));
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      fetchAllPages<T>((from, to) => build(chunk, from, to)),
+    ),
+  );
+  return results.flat();
+}

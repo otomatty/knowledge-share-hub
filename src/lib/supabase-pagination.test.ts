@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { fetchAllPages, PAGE_SIZE } from "./supabase-pagination";
+import {
+  DEFAULT_IN_CHUNK_SIZE,
+  fetchAllPages,
+  fetchAllPagesChunked,
+  PAGE_SIZE,
+} from "./supabase-pagination";
 
 /**
  * Mock builder that serves a fixed in-memory row set as if Supabase
@@ -62,6 +67,46 @@ describe("fetchAllPages", () => {
     // 500 + 500 + 250 + 0-exit = 4 calls, advancing by actual row
     // counts (500, 500, 250) not by PAGE_SIZE.
     expect(calls.map((c) => c.from)).toEqual([0, 500, 1000, 1250]);
+  });
+
+  it("fetchAllPagesChunked: splits ids into bounded chunks, merges the results", async () => {
+    // 250 ids + 100-per-chunk → 3 chunks of sizes (100, 100, 50).
+    const ids = Array.from({ length: 250 }, (_, i) => `id-${i}`);
+    const observedChunkSizes: number[] = [];
+    const result = await fetchAllPagesChunked<string>(
+      ids,
+      async (chunk, from, to) => {
+        // Only record on the initial (offset=0) call per chunk;
+        // `fetchAllPages` always makes a follow-up empty-page request
+        // to confirm exhaustion, which would otherwise double-count
+        // the observed chunk sizes.
+        if (from === 0) observedChunkSizes.push(chunk.length);
+        if (from === 0) return { data: [...chunk], error: null };
+        expect(to).toBeGreaterThanOrEqual(from);
+        return { data: [], error: null };
+      },
+    );
+    expect(observedChunkSizes).toEqual([100, 100, 50]);
+    // Order preserved within each chunk; full coverage across all ids.
+    expect(result).toHaveLength(250);
+    expect(new Set(result)).toEqual(new Set(ids));
+  });
+
+  it("fetchAllPagesChunked: returns [] for empty ids without calling the builder", async () => {
+    let called = false;
+    const result = await fetchAllPagesChunked<string>([], async () => {
+      called = true;
+      return { data: [], error: null };
+    });
+    expect(result).toEqual([]);
+    expect(called).toBe(false);
+  });
+
+  it("fetchAllPagesChunked: DEFAULT_IN_CHUNK_SIZE keeps URL bytes bounded", () => {
+    // This is a meta-test: the constant itself is the contract. If
+    // someone bumps it, they need to have consciously checked the
+    // resulting URL length against common proxy limits.
+    expect(DEFAULT_IN_CHUNK_SIZE).toBeLessThanOrEqual(150);
   });
 
   it("surfaces PostgrestError from the builder", async () => {
