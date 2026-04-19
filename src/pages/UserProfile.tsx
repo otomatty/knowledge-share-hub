@@ -1,31 +1,48 @@
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentCard } from "@/components/shared/ContentCard";
+import { ArchiveSection } from "@/components/archive/ArchiveSection";
 import {
   useProfileByUsername,
   useTipsMapped,
 } from "@/hooks/use-domain-queries";
+import { useAuth } from "@/contexts/AuthContext";
+
+const VALID_TABS = ["tips", "archive"] as const;
+type TabValue = (typeof VALID_TABS)[number];
 
 export default function UserProfile() {
   const { username } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const profileQ = useProfileByUsername(username);
-  const tipsQ = useTipsMapped();
+  // Derive ownership from the session `user.id`, not the fetched
+  // `profile`. AuthContext sets `loading=false` as soon as the session
+  // resolves but kicks off the profile fetch separately, so there's a
+  // window where `profile` is null while the archive page has already
+  // loaded. Falling through to the non-owner branch in that window
+  // mounts `OwnTipsPane` (firing the global feed query) even when the
+  // URL said `?tab=archive` — exactly the cost the archive tab was
+  // meant to avoid.
+  const { user: authUser } = useAuth();
 
   const user = profileQ.data?.profile;
   const userId = profileQ.data?.userId;
+  const isSelf = !!authUser?.id && !!userId && authUser.id === userId;
 
-  const userTips = useMemo(() => {
-    if (!userId) return [];
-    return (tipsQ.data ?? []).filter(
-      (t) => t.author.id === userId && !t.is_anonymous,
-    );
-  }, [userId, tipsQ.data]);
+  const rawTab = searchParams.get("tab");
+  const tab: TabValue =
+    rawTab === "archive" && isSelf ? "archive" : "tips";
+  const setTab = (next: TabValue) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "tips") params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
 
-  // Only profileQ guards the entire page render; tipsQ is scoped to the
-  // tips section below so a tips failure doesn't blank out the profile.
   if (profileQ.isError) {
     return (
       <MainLayout>
@@ -44,7 +61,7 @@ export default function UserProfile() {
     );
   }
 
-  if (!user) {
+  if (!user || !userId) {
     return (
       <MainLayout>
         <p className="text-muted-foreground py-12">ユーザーが見つかりません</p>
@@ -82,29 +99,99 @@ export default function UserProfile() {
           </div>
         </div>
 
-        <h2 className="text-lg font-semibold mb-3">
-          💬 気づき{!tipsQ.isLoading && !tipsQ.isError ? ` (${userTips.length})` : ""}
-        </h2>
-        {tipsQ.isLoading ? (
-          <p className="text-muted-foreground py-8">気づきを読み込み中…</p>
-        ) : tipsQ.isError ? (
-          <p className="text-destructive py-8">
-            気づきの読み込みに失敗しました。時間をおいて再度お試しください。
-          </p>
-        ) : userTips.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">
-            まだ気づきがありません
-          </p>
+        {isSelf ? (
+          // Radix TabsContent doesn't mount inactive tabs by default, so
+          // putting the feed query inside `OwnTipsPane` means an owner
+          // on ?tab=archive never pays for `useTipsMapped` — the archive
+          // is owner-scoped and stays lightweight.
+          <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
+            <TabsList>
+              <TabsTrigger value="tips">💬 気づき</TabsTrigger>
+              <TabsTrigger value="archive">📦 アーカイブ</TabsTrigger>
+            </TabsList>
+            <TabsContent value="tips">
+              <OwnTipsPane userId={userId} />
+            </TabsContent>
+            <TabsContent value="archive">
+              <ArchiveSection
+                userId={userId}
+                owner={{
+                  id: user.id,
+                  username: user.username,
+                  display_name: user.display_name,
+                }}
+              />
+            </TabsContent>
+          </Tabs>
         ) : (
-          <div className="bg-card rounded-lg border divide-y">
-            {userTips.map((t) => (
-              <div key={t.id} className="px-4">
-                <ContentCard data={t} />
-              </div>
-            ))}
-          </div>
+          <OwnTipsPane userId={userId} showHeading />
         )}
       </div>
     </MainLayout>
+  );
+}
+
+function OwnTipsPane({
+  userId,
+  showHeading = false,
+}: {
+  userId: string;
+  showHeading?: boolean;
+}) {
+  const tipsQ = useTipsMapped();
+  const tips = useMemo(
+    () =>
+      (tipsQ.data ?? []).filter(
+        (t) => t.author.id === userId && !t.is_anonymous,
+      ),
+    [userId, tipsQ.data],
+  );
+
+  const heading = showHeading ? (
+    <h2 className="text-lg font-semibold mb-3">
+      💬 気づき
+      {!tipsQ.isLoading && !tipsQ.isError ? ` (${tips.length})` : ""}
+    </h2>
+  ) : null;
+
+  if (tipsQ.isLoading) {
+    return (
+      <>
+        {heading}
+        <p className="text-muted-foreground py-8">気づきを読み込み中…</p>
+      </>
+    );
+  }
+  if (tipsQ.isError) {
+    return (
+      <>
+        {heading}
+        <p className="text-destructive py-8">
+          気づきの読み込みに失敗しました。時間をおいて再度お試しください。
+        </p>
+      </>
+    );
+  }
+  if (tips.length === 0) {
+    return (
+      <>
+        {heading}
+        <p className="text-center text-muted-foreground py-8">
+          まだ気づきがありません
+        </p>
+      </>
+    );
+  }
+  return (
+    <>
+      {heading}
+      <div className="bg-card rounded-lg border divide-y">
+        {tips.map((t) => (
+          <div key={t.id} className="px-4">
+            <ContentCard data={t} />
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
