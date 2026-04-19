@@ -56,7 +56,7 @@ export function RightSidebar() {
       {trendingTags.context.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
               <Hash className="h-4 w-4 text-kh-purple" />
               気づきの種類
             </CardTitle>
@@ -83,7 +83,7 @@ export function RightSidebar() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
             <Hash className="h-4 w-4 text-primary" />
             技術タグ
           </CardTitle>
