@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { fetchAllPages } from "@/lib/supabase-pagination";
 import type { ReactionSummary } from "@/types";
 
 export const emptyReactionSummary = (): ReactionSummary => ({
@@ -15,20 +16,31 @@ export async function fetchReactionSummaries(
   const out: Record<string, ReactionSummary> = {};
   if (contentIds.length === 0) return out;
 
-  const { data, error } = await supabase
-    .from("reactions")
-    .select("content_id, reaction_type")
-    .eq("content_type", contentType)
-    .in("content_id", contentIds);
-
-  if (error) throw error;
-  if (!data) return out;
+  // Page through matching reactions. A single un-paginated read
+  // truncates at the PostgREST row cap, which would silently
+  // under-count reactions for any content set that happens to have
+  // more than ~1000 total rows of reactions (common once the archive
+  // feature exports across a power user's whole history). Order by
+  // `id` only — this is a pure aggregate, so the order just needs to
+  // be stable across pages, not chronological.
+  const rows = await fetchAllPages<{
+    content_id: string;
+    reaction_type: string;
+  }>((from, to) =>
+    supabase
+      .from("reactions")
+      .select("content_id, reaction_type")
+      .eq("content_type", contentType)
+      .in("content_id", contentIds)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 
   for (const id of contentIds) {
     out[id] = emptyReactionSummary();
   }
-  for (const row of data) {
-    const id = row.content_id as string;
+  for (const row of rows) {
+    const id = row.content_id;
     const rt = row.reaction_type as keyof ReactionSummary;
     if (out[id]) out[id][rt]++;
   }
@@ -68,15 +80,17 @@ export async function fetchCommentCounts(
   if (contentIds.length === 0) return out;
   for (const id of contentIds) out[id] = 0;
 
-  const { data, error } = await supabase
-    .from("comments")
-    .select("content_id")
-    .eq("content_type", contentType)
-    .in("content_id", contentIds);
-
-  if (error) throw error;
-  for (const row of data ?? []) {
-    const cid = row.content_id as string;
+  const rows = await fetchAllPages<{ content_id: string }>((from, to) =>
+    supabase
+      .from("comments")
+      .select("content_id")
+      .eq("content_type", contentType)
+      .in("content_id", contentIds)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  for (const row of rows) {
+    const cid = row.content_id;
     out[cid] = (out[cid] ?? 0) + 1;
   }
   return out;

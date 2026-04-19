@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import type { PostgrestError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import {
   emptyReactionSummary,
   fetchCommentCounts,
   fetchReactionSummaries,
 } from "@/lib/reaction-aggregates";
+import { fetchAllPages } from "@/lib/supabase-pagination";
 import { mapTipRow, type TipWithJoins } from "@/lib/supabase-mappers";
 import type { ArchiveEntry } from "@/lib/archive-export";
 import type { TipAddendum } from "@/hooks/use-tip-resurfacings";
@@ -24,42 +24,15 @@ import type { TipAddendum } from "@/hooks/use-tip-resurfacings";
  * try-it loop (issue #8) are pulled alongside so one archive export
  * contains the whole timeline of an insight, not just the original post.
  *
- * Every read paginates with `.range()` until the page returns fewer
- * than `PAGE` rows. PostgREST defaults to a 1000-row hard cap on
- * `SELECT` responses and hosted Supabase projects often tighten it
- * further, so a single unbounded request would silently truncate the
- * archive once a power user crosses the cap — a data-loss bug for a
- * feature positioned as a full personal backup (PR #28 codex).
+ * Every read paginates with `.range()` via the shared `fetchAllPages`
+ * helper, with an `id` tie-breaker appended to the ORDER BY. A
+ * timestamp alone is not a total order: two rows sharing a
+ * `created_at` / `pledged_at` can reorder between page requests and
+ * produce duplicates or gaps at boundaries (PR #28 coderabbit).
+ * `attemptsByResult` has no natural chronological sort and only feeds
+ * a lookup Map, so it orders by `id` alone — the goal there is
+ * page-boundary stability, not presentation order.
  */
-
-const PAGE = 1000;
-
-async function fetchAllPages<T>(
-  build: (
-    from: number,
-    to: number,
-  ) => PromiseLike<{ data: T[] | null; error: PostgrestError | null }>,
-): Promise<T[]> {
-  const all: T[] = [];
-  let offset = 0;
-  // Upper bound on iterations: a misbehaving endpoint that keeps
-  // returning PAGE rows forever would loop without this. 1M archive
-  // rows is well past the "your backup format should be a database
-  // dump, not JSON" threshold — stop there and surface an explicit
-  // error so the UI doesn't silently hang.
-  const MAX_PAGES = 1000;
-  for (let i = 0; i < MAX_PAGES; i++) {
-    const { data, error } = await build(offset, offset + PAGE - 1);
-    if (error) throw error;
-    const rows = data ?? [];
-    all.push(...rows);
-    if (rows.length < PAGE) return all;
-    offset += PAGE;
-  }
-  throw new Error(
-    `archive fetch exceeded ${MAX_PAGES * PAGE} rows — refusing to page further`,
-  );
-}
 
 export function useUserArchive(userId: string | undefined) {
   return useQuery({
@@ -74,6 +47,7 @@ export function useUserArchive(userId: string | undefined) {
           )
           .eq("author_id", userId!)
           .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
           .range(from, to),
       );
       if (tipRows.length === 0) return [];
@@ -103,6 +77,7 @@ export function useUserArchive(userId: string | undefined) {
               .select("id, tip_id, author_id, content, created_at")
               .in("tip_id", tipIds)
               .order("created_at", { ascending: true })
+              .order("id", { ascending: true })
               .range(from, to),
           ),
           fetchAllPages<{
@@ -112,9 +87,10 @@ export function useUserArchive(userId: string | undefined) {
           }>((from, to) =>
             supabase
               .from("tip_attempts_public")
-              .select("source_tip_id, result_tip_id, pledged_at")
+              .select("id, source_tip_id, result_tip_id, pledged_at")
               .in("source_tip_id", tipIds)
               .order("pledged_at", { ascending: true })
+              .order("id", { ascending: true })
               .range(from, to),
           ),
           fetchAllPages<{
@@ -123,8 +99,9 @@ export function useUserArchive(userId: string | undefined) {
           }>((from, to) =>
             supabase
               .from("tip_attempts_public")
-              .select("source_tip_id, result_tip_id")
+              .select("id, source_tip_id, result_tip_id")
               .in("result_tip_id", tipIds)
+              .order("id", { ascending: true })
               .range(from, to),
           ),
         ]);
