@@ -19,11 +19,19 @@ export default function UserProfile() {
   const { username } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const profileQ = useProfileByUsername(username);
-  const { profile: currentProfile } = useAuth();
+  // Derive ownership from the session `user.id`, not the fetched
+  // `profile`. AuthContext sets `loading=false` as soon as the session
+  // resolves but kicks off the profile fetch separately, so there's a
+  // window where `profile` is null while the archive page has already
+  // loaded. Falling through to the non-owner branch in that window
+  // mounts `OwnTipsPane` (firing the global feed query) even when the
+  // URL said `?tab=archive` — exactly the cost the archive tab was
+  // meant to avoid.
+  const { user: authUser } = useAuth();
 
   const user = profileQ.data?.profile;
   const userId = profileQ.data?.userId;
-  const isSelf = !!currentProfile && !!userId && currentProfile.id === userId;
+  const isSelf = !!authUser?.id && !!userId && authUser.id === userId;
 
   const rawTab = searchParams.get("tab");
   const tab: TabValue =
