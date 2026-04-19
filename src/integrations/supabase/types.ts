@@ -216,7 +216,8 @@ export type Database = {
             | "comment"
             | "reply"
             | "try_it_followup"
-            | "try_it_result";
+            | "try_it_result"
+            | "resurface_self";
           content_type: "tip";
           content_id: string;
           // Nullable since migration 00020: anonymous try_it_result
@@ -234,7 +235,8 @@ export type Database = {
             | "comment"
             | "reply"
             | "try_it_followup"
-            | "try_it_result";
+            | "try_it_result"
+            | "resurface_self";
           content_type: "tip";
           content_id: string;
           actor_id?: string | null;
@@ -250,7 +252,8 @@ export type Database = {
             | "comment"
             | "reply"
             | "try_it_followup"
-            | "try_it_result";
+            | "try_it_result"
+            | "resurface_self";
           content_type?: "tip";
           content_id?: string;
           actor_id?: string | null;
@@ -286,6 +289,61 @@ export type Database = {
           pledged_at?: string;
           completed_at?: string | null;
           follow_up_notified_at?: string | null;
+        };
+      };
+      tip_resurfacings: {
+        Row: {
+          id: string;
+          user_id: string;
+          tip_id: string;
+          interval_days: number;
+          surfaced_at: string;
+          acknowledged_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tip_id: string;
+          interval_days: number;
+          surfaced_at?: string;
+          acknowledged_at?: string | null;
+        };
+        Update: {
+          // Only `acknowledged_at` is user-mutable — a BEFORE trigger
+          // (00022) rejects any other column change.
+          id?: string;
+          user_id?: string;
+          tip_id?: string;
+          interval_days?: number;
+          surfaced_at?: string;
+          acknowledged_at?: string | null;
+        };
+      };
+      tip_addendums: {
+        Row: {
+          id: string;
+          tip_id: string;
+          author_id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tip_id: string;
+          author_id: string;
+          content: string;
+          created_at?: string;
+        };
+        // Addendums are append-only (no UPDATE/DELETE policy on the
+        // table), but PostgREST still requires an Update shape for
+        // `.from(...)` to type-check — keep it permissive to mirror
+        // the other tables rather than introducing a new narrow type.
+        Update: {
+          id?: string;
+          tip_id?: string;
+          author_id?: string;
+          content?: string;
+          created_at?: string;
         };
       };
     };

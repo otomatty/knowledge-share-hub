@@ -2,12 +2,22 @@ import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ContentCard } from "@/components/shared/ContentCard";
 import { TipsDialog } from "@/components/shared/TipsDialog";
+import { SelfResurfaceBanner } from "@/components/shared/SelfResurfaceBanner";
+import { ResurfacedFeedSection } from "@/components/shared/ResurfacedFeedSection";
 import { MessageSquarePlus } from "lucide-react";
 import { useTipsMapped } from "@/hooks/use-domain-queries";
+import {
+  useFeedResurfacings,
+  useSelfResurfacings,
+} from "@/hooks/use-tip-resurfacings";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Index() {
   const [tipDialogOpen, setTipDialogOpen] = useState(false);
+  const { profile } = useAuth();
   const tipsQ = useTipsMapped();
+  const selfResurfQ = useSelfResurfacings(profile?.id);
+  const feedResurfQ = useFeedResurfacings(profile?.id);
 
   if (tipsQ.isLoading) {
     return (
@@ -28,6 +38,8 @@ export default function Index() {
   }
 
   const tips = tipsQ.data ?? [];
+  const selfResurfacings = selfResurfQ.data ?? [];
+  const feedResurfacings = feedResurfQ.data ?? [];
 
   return (
     <MainLayout>
@@ -38,6 +50,9 @@ export default function Index() {
             みんなの「ちょっとした気づき」を眺める場所
           </p>
         </div>
+
+        <SelfResurfaceBanner items={selfResurfacings} />
+        <ResurfacedFeedSection tips={feedResurfacings} />
 
         {tips.length === 0 ? (
           <p className="text-center text-muted-foreground py-12">

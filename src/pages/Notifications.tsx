@@ -16,6 +16,7 @@ import { Bell, Check } from "lucide-react";
 const TYPE_ICON: Record<string, string> = {
   try_it_followup: "🔁",
   try_it_result: "🎉",
+  resurface_self: "✨",
   reaction: "💬",
   comment: "💬",
   reply: "💬",
