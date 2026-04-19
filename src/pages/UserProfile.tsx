@@ -19,7 +19,6 @@ export default function UserProfile() {
   const { username } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const profileQ = useProfileByUsername(username);
-  const tipsQ = useTipsMapped();
   const { profile: currentProfile } = useAuth();
 
   const user = profileQ.data?.profile;
@@ -36,15 +35,6 @@ export default function UserProfile() {
     setSearchParams(params, { replace: true });
   };
 
-  const userTips = useMemo(() => {
-    if (!userId) return [];
-    return (tipsQ.data ?? []).filter(
-      (t) => t.author.id === userId && !t.is_anonymous,
-    );
-  }, [userId, tipsQ.data]);
-
-  // Only profileQ guards the entire page render; tipsQ is scoped to the
-  // tips section below so a tips failure doesn't blank out the profile.
   if (profileQ.isError) {
     return (
       <MainLayout>
@@ -102,17 +92,17 @@ export default function UserProfile() {
         </div>
 
         {isSelf ? (
+          // Radix TabsContent doesn't mount inactive tabs by default, so
+          // putting the feed query inside `OwnTipsPane` means an owner
+          // on ?tab=archive never pays for `useTipsMapped` — the archive
+          // is owner-scoped and stays lightweight.
           <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
             <TabsList>
               <TabsTrigger value="tips">💬 気づき</TabsTrigger>
               <TabsTrigger value="archive">📦 アーカイブ</TabsTrigger>
             </TabsList>
             <TabsContent value="tips">
-              <TipsPane
-                isLoading={tipsQ.isLoading}
-                isError={tipsQ.isError}
-                tips={userTips}
-              />
+              <OwnTipsPane userId={userId} />
             </TabsContent>
             <TabsContent value="archive">
               <ArchiveSection
@@ -126,60 +116,74 @@ export default function UserProfile() {
             </TabsContent>
           </Tabs>
         ) : (
-          <>
-            <h2 className="text-lg font-semibold mb-3">
-              💬 気づき
-              {!tipsQ.isLoading && !tipsQ.isError ? ` (${userTips.length})` : ""}
-            </h2>
-            <TipsPane
-              isLoading={tipsQ.isLoading}
-              isError={tipsQ.isError}
-              tips={userTips}
-            />
-          </>
+          <OwnTipsPane userId={userId} showHeading />
         )}
       </div>
     </MainLayout>
   );
 }
 
-function TipsPane({
-  isLoading,
-  isError,
-  tips,
+function OwnTipsPane({
+  userId,
+  showHeading = false,
 }: {
-  isLoading: boolean;
-  isError: boolean;
-  tips: ReturnType<typeof useTipsMapped>["data"] extends infer T
-    ? T extends (infer U)[] | undefined
-      ? U[]
-      : never
-    : never;
+  userId: string;
+  showHeading?: boolean;
 }) {
-  if (isLoading) {
-    return <p className="text-muted-foreground py-8">気づきを読み込み中…</p>;
-  }
-  if (isError) {
+  const tipsQ = useTipsMapped();
+  const tips = useMemo(
+    () =>
+      (tipsQ.data ?? []).filter(
+        (t) => t.author.id === userId && !t.is_anonymous,
+      ),
+    [userId, tipsQ.data],
+  );
+
+  const heading = showHeading ? (
+    <h2 className="text-lg font-semibold mb-3">
+      💬 気づき
+      {!tipsQ.isLoading && !tipsQ.isError ? ` (${tips.length})` : ""}
+    </h2>
+  ) : null;
+
+  if (tipsQ.isLoading) {
     return (
-      <p className="text-destructive py-8">
-        気づきの読み込みに失敗しました。時間をおいて再度お試しください。
-      </p>
+      <>
+        {heading}
+        <p className="text-muted-foreground py-8">気づきを読み込み中…</p>
+      </>
+    );
+  }
+  if (tipsQ.isError) {
+    return (
+      <>
+        {heading}
+        <p className="text-destructive py-8">
+          気づきの読み込みに失敗しました。時間をおいて再度お試しください。
+        </p>
+      </>
     );
   }
   if (tips.length === 0) {
     return (
-      <p className="text-center text-muted-foreground py-8">
-        まだ気づきがありません
-      </p>
+      <>
+        {heading}
+        <p className="text-center text-muted-foreground py-8">
+          まだ気づきがありません
+        </p>
+      </>
     );
   }
   return (
-    <div className="bg-card rounded-lg border divide-y">
-      {tips.map((t) => (
-        <div key={t.id} className="px-4">
-          <ContentCard data={t} />
-        </div>
-      ))}
-    </div>
+    <>
+      {heading}
+      <div className="bg-card rounded-lg border divide-y">
+        {tips.map((t) => (
+          <div key={t.id} className="px-4">
+            <ContentCard data={t} />
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
