@@ -35,32 +35,6 @@ export async function fetchReactionSummaries(
   return out;
 }
 
-/** Reactions received on tips authored by each user. */
-export async function fetchReactionCountsReceivedByAuthors(): Promise<
-  { user_id: string; total: number }[]
-> {
-  const [{ data: tips, error: e1 }, { data: rx, error: e2 }] = await Promise.all([
-    supabase.from("tips").select("id, author_id"),
-    supabase
-      .from("reactions")
-      .select("content_id")
-      .eq("content_type", "tip"),
-  ]);
-  if (e1) throw e1;
-  if (e2) throw e2;
-
-  const tipAuthor = new Map(
-    (tips ?? []).map((t) => [t.id as string, t.author_id as string]),
-  );
-
-  const counts = new Map<string, number>();
-  for (const r of rx ?? []) {
-    const author = tipAuthor.get(r.content_id as string);
-    if (author) counts.set(author, (counts.get(author) ?? 0) + 1);
-  }
-  return [...counts.entries()].map(([user_id, total]) => ({ user_id, total }));
-}
-
 export async function fetchTagUsageCounts(): Promise<
   { tag_id: string; name: string; category: "tech" | "context"; count: number }[]
 > {

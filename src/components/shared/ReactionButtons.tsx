@@ -32,12 +32,7 @@ export function ReactionButtons({
   onToggle,
   disabled = false,
 }: ReactionButtonsProps) {
-  const [localReactions, setLocalReactions] = useState(reactions);
   const [activeReactions, setActiveReactions] = useState<Set<ReactionType>>(new Set());
-
-  useEffect(() => {
-    setLocalReactions(reactions);
-  }, [reactions]);
 
   useEffect(() => {
     if (activeTypes !== undefined) {
@@ -53,10 +48,8 @@ export function ReactionButtons({
     const next = new Set(activeReactions);
     if (next.has(type)) {
       next.delete(type);
-      setLocalReactions(prev => ({ ...prev, [type]: prev[type] - 1 }));
     } else {
       next.add(type);
-      setLocalReactions(prev => ({ ...prev, [type]: prev[type] + 1 }));
     }
     setActiveReactions(next);
   };
@@ -70,7 +63,6 @@ export function ReactionButtons({
   return (
     <div className="flex items-center gap-1 flex-wrap">
       {(Object.entries(REACTION_CONFIG) as [ReactionType, { emoji: string; label: string }][]).map(([type, config]) => {
-        const count = localReactions[type];
         const active = activeReactions.has(type);
         return (
           <Button
@@ -83,7 +75,6 @@ export function ReactionButtons({
             title={config.label}
           >
             <span>{config.emoji}</span>
-            {count > 0 && <span>{count}</span>}
           </Button>
         );
       })}

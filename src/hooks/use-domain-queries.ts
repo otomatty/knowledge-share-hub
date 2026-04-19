@@ -5,7 +5,6 @@ import {
   fetchCommentCounts,
   fetchReactionSummaries,
   fetchTagUsageCounts,
-  fetchReactionCountsReceivedByAuthors,
 } from "@/lib/reaction-aggregates";
 import {
   mapCommentRow,
@@ -184,28 +183,3 @@ export function useTrendingTags() {
   });
 }
 
-export function useWeeklyUserRanking() {
-  return useQuery({
-    queryKey: ["users", "weekly-ranking"],
-    queryFn: async (): Promise<{ user: User; reactionCount: number }[]> => {
-      const totals = await fetchReactionCountsReceivedByAuthors();
-      const { data: profiles, error } = await supabase
-        .from("profiles")
-        .select("*");
-      if (error) throw error;
-      const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
-      return totals
-        .map((t) => {
-          const p = byId.get(t.user_id);
-          if (!p) return null;
-          return {
-            user: profileToUser(p),
-            reactionCount: t.total,
-          };
-        })
-        .filter((x): x is { user: User; reactionCount: number } => x !== null)
-        .sort((a, b) => b.reactionCount - a.reactionCount)
-        .slice(0, 5);
-    },
-  });
-}
