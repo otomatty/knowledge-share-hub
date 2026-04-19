@@ -64,15 +64,37 @@ export interface ReactionSummary {
   learned: number;
 }
 
+export type NotificationType =
+  | 'reaction'
+  | 'comment'
+  | 'reply'
+  | 'try_it_followup'
+  | 'try_it_result';
+
 export interface Notification {
   id: string;
-  type: 'reaction' | 'comment' | 'reply';
+  type: NotificationType;
   content_type: ContentType;
   content_id: string;
-  actor: User;
+  // Null when the source action was anonymous (e.g., try_it_result
+  // for a result tip posted with is_anonymous=true) — migration 00020
+  // made `notifications.actor_id` nullable so the source author can't
+  // deanonymise the actor by joining on profiles.
+  actor: User | null;
   is_read: boolean;
   created_at: string;
   message: string;
+}
+
+// Pledge record: "user X said they'd try tip Y; eventually posted result tip Z"
+export interface TipAttempt {
+  id: string;
+  source_tip_id: string;
+  result_tip_id: string | null;
+  user_id: string;
+  pledged_at: string;
+  completed_at: string | null;
+  follow_up_notified_at: string | null;
 }
 
 export const REACTION_CONFIG: Record<ReactionType, { emoji: string; label: string }> = {

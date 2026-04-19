@@ -211,10 +211,17 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          type: "reaction" | "comment" | "reply";
+          type:
+            | "reaction"
+            | "comment"
+            | "reply"
+            | "try_it_followup"
+            | "try_it_result";
           content_type: "tip";
           content_id: string;
-          actor_id: string;
+          // Nullable since migration 00020: anonymous try_it_result
+          // notifications store NULL here to preserve anonymity.
+          actor_id: string | null;
           is_read: boolean;
           message: string;
           created_at: string;
@@ -222,10 +229,15 @@ export type Database = {
         Insert: {
           id?: string;
           user_id: string;
-          type: "reaction" | "comment" | "reply";
+          type:
+            | "reaction"
+            | "comment"
+            | "reply"
+            | "try_it_followup"
+            | "try_it_result";
           content_type: "tip";
           content_id: string;
-          actor_id: string;
+          actor_id?: string | null;
           is_read?: boolean;
           message: string;
           created_at?: string;
@@ -233,17 +245,68 @@ export type Database = {
         Update: {
           id?: string;
           user_id?: string;
-          type?: "reaction" | "comment" | "reply";
+          type?:
+            | "reaction"
+            | "comment"
+            | "reply"
+            | "try_it_followup"
+            | "try_it_result";
           content_type?: "tip";
           content_id?: string;
-          actor_id?: string;
+          actor_id?: string | null;
           is_read?: boolean;
           message?: string;
           created_at?: string;
         };
       };
+      tip_attempts: {
+        Row: {
+          id: string;
+          source_tip_id: string;
+          result_tip_id: string | null;
+          user_id: string;
+          pledged_at: string;
+          completed_at: string | null;
+          follow_up_notified_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          source_tip_id: string;
+          result_tip_id?: string | null;
+          user_id: string;
+          pledged_at?: string;
+          completed_at?: string | null;
+          follow_up_notified_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          source_tip_id?: string;
+          result_tip_id?: string | null;
+          user_id?: string;
+          pledged_at?: string;
+          completed_at?: string | null;
+          follow_up_notified_at?: string | null;
+        };
+      };
     };
-    Views: Record<string, never>;
+    Views: {
+      // Read-only view exposing tip_attempts with `user_id` masked to
+      // NULL when the viewer isn't the owner and the linked result tip
+      // is anonymous (migration 00019). SELECT on the underlying
+      // `tip_attempts` table is revoked from authenticated/anon, so
+      // this is the sole read path for clients.
+      tip_attempts_public: {
+        Row: {
+          id: string;
+          source_tip_id: string;
+          result_tip_id: string | null;
+          user_id: string | null;
+          pledged_at: string;
+          completed_at: string | null;
+          follow_up_notified_at: string | null;
+        };
+      };
+    };
     Functions: Record<string, never>;
     Enums: {
       content_status: "draft" | "published";

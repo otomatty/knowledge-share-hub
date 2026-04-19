@@ -114,6 +114,27 @@ export function useToggleReaction() {
           variables.contentId,
         ],
       });
+      // A try_it reaction on a tip creates (or leaves untouched) a
+      // tip_attempts row via the DB trigger `handle_try_it_reaction`.
+      // The TipDetail "post result" CTA and "tried-by" list both read
+      // from the tip-attempts caches, so invalidate them here to keep
+      // the reaction toggle and the lineage UI in sync on the same click.
+      if (
+        variables.reactionType === "try_it" &&
+        variables.contentType === "tip"
+      ) {
+        queryClient.invalidateQueries({
+          queryKey: ["tip-attempts", "source", variables.contentId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [
+            "tip-attempts",
+            "mine",
+            variables.contentId,
+            variables.userId,
+          ],
+        });
+      }
     },
   });
 }
