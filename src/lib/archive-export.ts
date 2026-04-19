@@ -77,9 +77,70 @@ function sortTagsForExport(tags: Tag[]): Tag[] {
 }
 
 // ---------------------------------------------------------------------------
+// Size guard
+
+/**
+ * Upper bound on the estimated payload before we refuse to serialise.
+ *
+ * The archive is already materialised in memory by `useUserArchive`
+ * before either serialiser runs, so streaming just the serialiser
+ * wouldn't prevent OOM on a genuinely enormous archive. Instead we cap
+ * the serialiser input with a count and a byte budget: callers get a
+ * clear, typed error they can surface as "期間を絞って再度お試しください"
+ * rather than a frozen tab or a silent truncation (PR #28 coderabbit).
+ *
+ * Numbers chosen to be generous — tips have a 140-char CHECK, so the
+ * byte budget tolerates tens of thousands of tips with addendums. If a
+ * user hits the cap, filtering by month or tag keeps them productive.
+ */
+export const MAX_EXPORT_ENTRIES = 10_000;
+export const MAX_EXPORT_CONTENT_BYTES = 20 * 1024 * 1024;
+
+export class ArchiveExportSizeError extends Error {
+  constructor(
+    message: string,
+    readonly reason: "too-many-entries" | "too-many-bytes",
+    readonly detail: { count: number; estimatedBytes: number },
+  ) {
+    super(message);
+    this.name = "ArchiveExportSizeError";
+  }
+}
+
+function assertSizeWithinLimit(data: ArchiveExportData): void {
+  if (data.entries.length > MAX_EXPORT_ENTRIES) {
+    throw new ArchiveExportSizeError(
+      `エクスポート件数が多すぎます (${data.entries.length} > ${MAX_EXPORT_ENTRIES})。期間やタグで絞って再度お試しください。`,
+      "too-many-entries",
+      { count: data.entries.length, estimatedBytes: 0 },
+    );
+  }
+  // UTF-8 worst case is 4 bytes per code unit; we use `.length` (UTF-16
+  // code units) as a conservative upper bound and pad for metadata
+  // overhead per entry/addendum so the estimate is pessimistic by
+  // design. False-negatives (letting through a payload that later
+  // bloats) are worse than false-positives.
+  let bytes = 0;
+  for (const e of data.entries) {
+    bytes += e.tip.content.length * 4 + 512;
+    for (const a of e.addendums) bytes += a.content.length * 4 + 256;
+    bytes += e.tip.tags.length * 64;
+    if (e.resultTipIds) bytes += e.resultTipIds.length * 64;
+  }
+  if (bytes > MAX_EXPORT_CONTENT_BYTES) {
+    throw new ArchiveExportSizeError(
+      `エクスポート量が大きすぎます (推定 ${Math.round(bytes / 1024 / 1024)}MB > ${Math.round(MAX_EXPORT_CONTENT_BYTES / 1024 / 1024)}MB)。期間やタグで絞って再度お試しください。`,
+      "too-many-bytes",
+      { count: data.entries.length, estimatedBytes: bytes },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Markdown
 
 export function toMarkdown(data: ArchiveExportData): string {
+  assertSizeWithinLimit(data);
   const lines: string[] = [];
   lines.push(`# ${data.owner.display_name} の気づきアーカイブ`);
   lines.push("");
@@ -214,6 +275,7 @@ export interface ArchiveJsonPayload {
 }
 
 export function toJson(data: ArchiveExportData): string {
+  assertSizeWithinLimit(data);
   const payload: ArchiveJsonPayload = {
     schema_version: 1,
     generated_at: data.generatedAt,

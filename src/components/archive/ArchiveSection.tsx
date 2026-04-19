@@ -19,11 +19,13 @@ import { ContentCard } from "@/components/shared/ContentCard";
 import { useUserArchive } from "@/hooks/use-user-archive";
 import {
   archiveBaseFilename,
+  ArchiveExportSizeError,
   toJson,
   toMarkdown,
   type ArchiveEntry,
   type ArchiveExportData,
 } from "@/lib/archive-export";
+import { toast } from "sonner";
 import type { User } from "@/types";
 import { Download, X } from "lucide-react";
 import { ja } from "date-fns/locale";
@@ -169,14 +171,29 @@ export function ArchiveSection({ userId, owner }: ArchiveSectionProps) {
       entries: filtered,
     };
     const base = archiveBaseFilename(owner.username, now);
-    if (kind === "md") {
-      triggerDownload(`${base}.md`, "text/markdown;charset=utf-8", toMarkdown(data));
-    } else {
-      triggerDownload(
-        `${base}.json`,
-        "application/json;charset=utf-8",
-        toJson(data),
-      );
+    try {
+      if (kind === "md") {
+        triggerDownload(
+          `${base}.md`,
+          "text/markdown;charset=utf-8",
+          toMarkdown(data),
+        );
+      } else {
+        triggerDownload(
+          `${base}.json`,
+          "application/json;charset=utf-8",
+          toJson(data),
+        );
+      }
+    } catch (e) {
+      // Size-limit errors carry a human-readable message intended for
+      // display. Anything else bubbles to the console so it's not
+      // silently swallowed.
+      if (e instanceof ArchiveExportSizeError) {
+        toast.error(e.message);
+      } else {
+        throw e;
+      }
     }
   };
 

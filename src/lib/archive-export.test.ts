@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   archiveBaseFilename,
+  ArchiveExportSizeError,
+  MAX_EXPORT_ENTRIES,
   toJson,
   toMarkdown,
   type ArchiveExportData,
@@ -313,6 +315,56 @@ describe("archive-export", () => {
       expect(parsed.entries[0].published_at).toBeNull();
       expect(parsed.entries[1].status).toBe("published");
       expect(parsed.entries[1].published_at).toBe("2026-03-15T12:00:00.000Z");
+    });
+  });
+
+  describe("size guard", () => {
+    it("throws ArchiveExportSizeError with reason 'too-many-entries' when the entry count exceeds the cap", () => {
+      // Build a synthetic payload with count = cap + 1. Each entry is
+      // tiny, so the byte guard can't fire first — we want to exercise
+      // the count branch specifically.
+      const entries = Array.from({ length: MAX_EXPORT_ENTRIES + 1 }, (_, i) => ({
+        tip: mkTip({ id: `t${i}`, content: "x" }),
+        addendums: [],
+      }));
+      const data = { ...mkData([]), entries };
+
+      expect(() => toMarkdown(data)).toThrowError(ArchiveExportSizeError);
+      expect(() => toJson(data)).toThrowError(ArchiveExportSizeError);
+      try {
+        toMarkdown(data);
+      } catch (e) {
+        expect(e).toBeInstanceOf(ArchiveExportSizeError);
+        expect((e as ArchiveExportSizeError).reason).toBe("too-many-entries");
+      }
+    });
+
+    it("throws with reason 'too-many-bytes' when estimated payload exceeds the byte cap", () => {
+      // A handful of entries, each carrying a very large content
+      // string, trips the byte estimate without going near the count
+      // cap. The estimator uses `length * 4` as a worst-case UTF-8
+      // bound, so a 2 MB JS string counts as ~8 MB — three of them
+      // comfortably cross the 20 MB budget.
+      const huge = "あ".repeat(2_000_000);
+      const entries = [
+        { tip: mkTip({ id: "a", content: huge }), addendums: [] },
+        { tip: mkTip({ id: "b", content: huge }), addendums: [] },
+        { tip: mkTip({ id: "c", content: huge }), addendums: [] },
+      ];
+      const data = { ...mkData([]), entries };
+      try {
+        toMarkdown(data);
+        throw new Error("expected size error");
+      } catch (e) {
+        expect(e).toBeInstanceOf(ArchiveExportSizeError);
+        expect((e as ArchiveExportSizeError).reason).toBe("too-many-bytes");
+      }
+    });
+
+    it("lets normal exports through untouched", () => {
+      const data = mkData([{ tip: mkTip(), addendums: [] }]);
+      expect(() => toMarkdown(data)).not.toThrow();
+      expect(() => toJson(data)).not.toThrow();
     });
   });
 
