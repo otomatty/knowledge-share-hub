@@ -1,21 +1,40 @@
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentCard } from "@/components/shared/ContentCard";
+import { ArchiveSection } from "@/components/archive/ArchiveSection";
 import {
   useProfileByUsername,
   useTipsMapped,
 } from "@/hooks/use-domain-queries";
+import { useAuth } from "@/contexts/AuthContext";
+
+const VALID_TABS = ["tips", "archive"] as const;
+type TabValue = (typeof VALID_TABS)[number];
 
 export default function UserProfile() {
   const { username } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const profileQ = useProfileByUsername(username);
   const tipsQ = useTipsMapped();
+  const { profile: currentProfile } = useAuth();
 
   const user = profileQ.data?.profile;
   const userId = profileQ.data?.userId;
+  const isSelf = !!currentProfile && !!userId && currentProfile.id === userId;
+
+  const rawTab = searchParams.get("tab");
+  const tab: TabValue =
+    rawTab === "archive" && isSelf ? "archive" : "tips";
+  const setTab = (next: TabValue) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "tips") params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
 
   const userTips = useMemo(() => {
     if (!userId) return [];
@@ -44,7 +63,7 @@ export default function UserProfile() {
     );
   }
 
-  if (!user) {
+  if (!user || !userId) {
     return (
       <MainLayout>
         <p className="text-muted-foreground py-12">ユーザーが見つかりません</p>
@@ -82,29 +101,85 @@ export default function UserProfile() {
           </div>
         </div>
 
-        <h2 className="text-lg font-semibold mb-3">
-          💬 気づき{!tipsQ.isLoading && !tipsQ.isError ? ` (${userTips.length})` : ""}
-        </h2>
-        {tipsQ.isLoading ? (
-          <p className="text-muted-foreground py-8">気づきを読み込み中…</p>
-        ) : tipsQ.isError ? (
-          <p className="text-destructive py-8">
-            気づきの読み込みに失敗しました。時間をおいて再度お試しください。
-          </p>
-        ) : userTips.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">
-            まだ気づきがありません
-          </p>
+        {isSelf ? (
+          <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
+            <TabsList>
+              <TabsTrigger value="tips">💬 気づき</TabsTrigger>
+              <TabsTrigger value="archive">📦 アーカイブ</TabsTrigger>
+            </TabsList>
+            <TabsContent value="tips">
+              <TipsPane
+                isLoading={tipsQ.isLoading}
+                isError={tipsQ.isError}
+                tips={userTips}
+              />
+            </TabsContent>
+            <TabsContent value="archive">
+              <ArchiveSection
+                userId={userId}
+                owner={{
+                  id: user.id,
+                  username: user.username,
+                  display_name: user.display_name,
+                }}
+              />
+            </TabsContent>
+          </Tabs>
         ) : (
-          <div className="bg-card rounded-lg border divide-y">
-            {userTips.map((t) => (
-              <div key={t.id} className="px-4">
-                <ContentCard data={t} />
-              </div>
-            ))}
-          </div>
+          <>
+            <h2 className="text-lg font-semibold mb-3">
+              💬 気づき
+              {!tipsQ.isLoading && !tipsQ.isError ? ` (${userTips.length})` : ""}
+            </h2>
+            <TipsPane
+              isLoading={tipsQ.isLoading}
+              isError={tipsQ.isError}
+              tips={userTips}
+            />
+          </>
         )}
       </div>
     </MainLayout>
+  );
+}
+
+function TipsPane({
+  isLoading,
+  isError,
+  tips,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  tips: ReturnType<typeof useTipsMapped>["data"] extends infer T
+    ? T extends (infer U)[] | undefined
+      ? U[]
+      : never
+    : never;
+}) {
+  if (isLoading) {
+    return <p className="text-muted-foreground py-8">気づきを読み込み中…</p>;
+  }
+  if (isError) {
+    return (
+      <p className="text-destructive py-8">
+        気づきの読み込みに失敗しました。時間をおいて再度お試しください。
+      </p>
+    );
+  }
+  if (tips.length === 0) {
+    return (
+      <p className="text-center text-muted-foreground py-8">
+        まだ気づきがありません
+      </p>
+    );
+  }
+  return (
+    <div className="bg-card rounded-lg border divide-y">
+      {tips.map((t) => (
+        <div key={t.id} className="px-4">
+          <ContentCard data={t} />
+        </div>
+      ))}
+    </div>
   );
 }
