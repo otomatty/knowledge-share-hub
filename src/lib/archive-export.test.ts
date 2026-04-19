@@ -35,7 +35,13 @@ function mkTip(overrides: Partial<Tip> = {}): Tip {
       learned: 0,
     },
     comment_count: 0,
-    created_at: "2026-03-15T10:00:00.000Z",
+    // Noon-UTC on fixture timestamps so local-calendar formatting
+    // (monthKey / isoDate use local getters by design) lands on the
+    // intended day regardless of the test runner's TZ. Tests that
+    // previously used midnight-UTC or early-morning-UTC would roll back
+    // to the prior day on machines west of UTC (e.g. CI runners set to
+    // PST/AKDT). Noon-UTC is safe from UTC−12 through UTC+11.
+    created_at: "2026-03-15T12:00:00.000Z",
     ...overrides,
   };
 }
@@ -65,8 +71,8 @@ describe("archive-export", () => {
     it("groups entries by month newest-first", () => {
       const md = toMarkdown(
         mkData([
-          { tip: mkTip({ id: "a", created_at: "2026-02-05T00:00:00.000Z" }), addendums: [] },
-          { tip: mkTip({ id: "b", created_at: "2026-03-10T00:00:00.000Z" }), addendums: [] },
+          { tip: mkTip({ id: "a", created_at: "2026-02-05T12:00:00.000Z" }), addendums: [] },
+          { tip: mkTip({ id: "b", created_at: "2026-03-10T12:00:00.000Z" }), addendums: [] },
         ]),
       );
       const marchIdx = md.indexOf("## 2026-03");
@@ -82,8 +88,8 @@ describe("archive-export", () => {
       // the serialiser. This test locks the contract so a future change
       // to the hook's order surfaces here instead of silently scrambling
       // exports.
-      const earlier = "2026-03-01T00:00:00.000Z";
-      const later = "2026-03-20T00:00:00.000Z";
+      const earlier = "2026-03-01T12:00:00.000Z";
+      const later = "2026-03-20T12:00:00.000Z";
       const md = toMarkdown(
         mkData([
           { tip: mkTip({ id: "later", created_at: later }), addendums: [] },
@@ -150,7 +156,7 @@ describe("archive-export", () => {
                 tipId: "t1",
                 authorId: "u1",
                 content: "一週間後の再読",
-                createdAt: "2026-03-22T00:00:00.000Z",
+                createdAt: "2026-03-22T12:00:00.000Z",
               },
             ],
           },
@@ -211,8 +217,8 @@ describe("archive-export", () => {
           {
             tip: mkTip({
               status: "published",
-              created_at: "2026-03-15T10:00:00.000Z",
-              published_at: "2026-03-15T10:00:00.500Z",
+              created_at: "2026-03-15T12:00:00.000Z",
+              published_at: "2026-03-15T12:00:00.500Z",
             }),
             addendums: [],
           },
@@ -228,8 +234,8 @@ describe("archive-export", () => {
           {
             tip: mkTip({
               status: "published",
-              created_at: "2026-03-15T10:00:00.000Z",
-              published_at: "2026-04-02T08:30:00.000Z",
+              created_at: "2026-03-15T12:00:00.000Z",
+              published_at: "2026-04-02T12:00:00.000Z",
             }),
             addendums: [],
           },
