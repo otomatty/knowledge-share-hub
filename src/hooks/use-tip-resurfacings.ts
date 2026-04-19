@@ -194,37 +194,82 @@ export function useFeedResurfacings(
   });
 }
 
+export const TIP_ADDENDUM_MAX_LENGTH = 140;
+
+export interface TipAddendum {
+  id: string;
+  tipId: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
+}
+
 /**
- * Append an "追記" block to the end of an existing tip. Used by the
- * self-resurfacing banner when a user picks "追記する" — the new thought
- * gets concatenated after a dated divider so the original and the later
- * reflection stay visually linked on the tip's detail page.
- *
- * Only the tip's author can update their own row (existing RLS policy
- * on `tips`), so no extra permission check is needed here.
+ * Addendums for a given tip, ordered oldest-first so the detail page can
+ * render them as a chronological thread of re-reads under the original.
  */
-export function useAppendToTip() {
+export function useTipAddendums(tipId: string | undefined) {
+  return useQuery({
+    queryKey: ["tip-addendums", tipId],
+    enabled: !!tipId,
+    queryFn: async (): Promise<TipAddendum[]> => {
+      const { data, error } = await supabase
+        .from("tip_addendums")
+        .select("id, tip_id, author_id, content, created_at")
+        .eq("tip_id", tipId!)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((r) => ({
+        id: r.id,
+        tipId: r.tip_id,
+        authorId: r.author_id,
+        content: r.content,
+        createdAt: r.created_at,
+      }));
+    },
+  });
+}
+
+/**
+ * Append a re-read reflection as its own `tip_addendums` row (PR #27
+ * review follow-up). Previously we concatenated into `tips.content`,
+ * which collides with the 140-char CHECK on that column and opens a
+ * read-modify-write race against concurrent edits. A dedicated row
+ * avoids both: the original tip is untouched, the write is a pure
+ * INSERT, and each addendum inherits its own 140-char ceiling from the
+ * table constraint.
+ *
+ * The INSERT RLS policy pins `author_id` against `tips.author_id` so
+ * even a forged client payload can't append to another user's tip.
+ */
+export function useAddTipAddendum() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (params: {
       tipId: string;
-      currentContent: string;
-      addendum: string;
+      authorId: string;
+      content: string;
     }) => {
-      const trimmed = params.addendum.trim();
+      const trimmed = params.content.trim();
       if (!trimmed) return;
-      const today = new Date().toISOString().slice(0, 10);
-      const next = `${params.currentContent}\n\n---\n**[${today} 再読み追記]** ${trimmed}`;
-      const { error } = await supabase
-        .from("tips")
-        .update({ content: next })
-        .eq("id", params.tipId);
+      if (trimmed.length > TIP_ADDENDUM_MAX_LENGTH) {
+        // Soft-validate client-side so the UI can surface a clear
+        // message; the DB CHECK catches the same case if anyone skips
+        // the hook (tests, direct supabase calls, …).
+        throw new Error(
+          `追記は${TIP_ADDENDUM_MAX_LENGTH}文字以内にしてください`,
+        );
+      }
+      const { error } = await supabase.from("tip_addendums").insert({
+        tip_id: params.tipId,
+        author_id: params.authorId,
+        content: trimmed,
+      });
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["tips"] });
       queryClient.invalidateQueries({
-        queryKey: ["tips", "domain", variables.tipId],
+        queryKey: ["tip-addendums", variables.tipId],
       });
     },
   });

@@ -13,10 +13,11 @@ import {
   useMyAttemptForTip,
   useSourceAttemptForResult,
 } from "@/hooks/use-tip-attempts";
+import { useTipAddendums } from "@/hooks/use-tip-resurfacings";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Repeat, CornerDownRight } from "lucide-react";
+import { Repeat, CornerDownRight, Sparkles } from "lucide-react";
 
 export default function TipDetail() {
   const { id } = useParams();
@@ -30,6 +31,10 @@ export default function TipDetail() {
   const { data: attempts = [] } = useTipAttemptsForSource(tip?.id);
   const { data: myAttempt } = useMyAttemptForTip(tip?.id, profile?.id);
   const { data: source } = useSourceAttemptForResult(tip?.id);
+  // Re-read addendums (issue #10): each row is a later reflection the
+  // tip's author appended when the resurfacing prompt surfaced their
+  // past tip. Rendered chronologically under the original body.
+  const { data: addendums = [] } = useTipAddendums(tip?.id);
 
   if (isLoading) {
     return (
@@ -128,6 +133,28 @@ export default function TipDetail() {
         <p className="text-base leading-relaxed whitespace-pre-wrap mb-4">
           {tip.content}
         </p>
+
+        {addendums.length > 0 && (
+          <ul className="mb-4 space-y-2">
+            {addendums.map((a) => (
+              <li
+                key={a.id}
+                className="rounded-md border-l-2 border-amber-400/70 bg-amber-50/40 dark:bg-amber-950/20 pl-3 pr-2 py-2"
+              >
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <Sparkles className="h-3 w-3" aria-hidden />
+                  <span>
+                    再読み追記 ·{" "}
+                    {format(new Date(a.createdAt), "yyyy-MM-dd", { locale: ja })}
+                  </span>
+                </div>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {a.content}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {tip.tags.length > 0 && (
           <div className="flex gap-1.5 mb-4 flex-wrap">

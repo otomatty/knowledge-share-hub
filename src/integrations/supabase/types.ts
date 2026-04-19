@@ -316,6 +316,33 @@ export type Database = {
           acknowledged_at?: string | null;
         };
       };
+      tip_addendums: {
+        Row: {
+          id: string;
+          tip_id: string;
+          author_id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tip_id: string;
+          author_id: string;
+          content: string;
+          created_at?: string;
+        };
+        // Addendums are append-only (no UPDATE/DELETE policy on the
+        // table), but PostgREST still requires an Update shape for
+        // `.from(...)` to type-check — keep it permissive to mirror
+        // the other tables rather than introducing a new narrow type.
+        Update: {
+          id?: string;
+          tip_id?: string;
+          author_id?: string;
+          content?: string;
+          created_at?: string;
+        };
+      };
     };
     Views: {
       // Read-only view exposing tip_attempts with `user_id` masked to

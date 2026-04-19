@@ -12,9 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   useAcknowledgeResurfacing,
-  useAppendToTip,
+  useAddTipAddendum,
+  TIP_ADDENDUM_MAX_LENGTH,
   type SelfResurfacing,
 } from "@/hooks/use-tip-resurfacings";
 
@@ -35,8 +37,9 @@ export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
   const [ackDialogId, setAckDialogId] = useState<string | null>(null);
   const [addendum, setAddendum] = useState("");
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const ack = useAcknowledgeResurfacing();
-  const append = useAppendToTip();
+  const append = useAddTipAddendum();
 
   if (items.length === 0) return null;
 
@@ -47,43 +50,60 @@ export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
     setAddendum("");
   };
 
-  const handleAppend = async () => {
-    if (!active) return;
-    try {
-      await append.mutateAsync({
-        tipId: active.tip.id,
-        currentContent: active.tip.content,
-        addendum,
-      });
-      await ack.mutateAsync({ id: active.id });
-      toast({
-        title: "追記しました",
-        description: "1週間前の気づきに、今の視点を重ねました。",
-      });
-      closeDialog();
-    } catch {
-      toast({
-        title: "追記に失敗しました",
-        description: "時間をおいて再度お試しください。",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const dismiss = async (id: string) => {
+  // Best-effort acknowledge. Every call site proceeds regardless of
+  // outcome: a failed update just means the banner reappears on the
+  // next refresh, which is less bad than stranding the user on a
+  // half-finished flow. Kept silent rather than toast-on-failure to
+  // avoid noise when the network blips during a navigation.
+  const tryAck = async (id: string) => {
     try {
       await ack.mutateAsync({ id });
     } catch {
-      // Best-effort dismiss; a failed update just means the banner reappears
-      // on next refresh — nothing worth surfacing to the user.
+      // swallow — see rationale above
     }
   };
 
+  const handleAppend = async () => {
+    if (!active || !profile) return;
+    // Split the two mutations so we can distinguish "the append failed
+    // and nothing landed" (retryable, show error) from "the append
+    // succeeded but the acknowledge side-effect failed" (not retryable,
+    // would silently double-write if the user tapped again). The ack
+    // failure path is handled exactly like dismiss(): swallowed.
+    try {
+      await append.mutateAsync({
+        tipId: active.tip.id,
+        authorId: profile.id,
+        content: addendum,
+      });
+    } catch (err) {
+      toast({
+        title: "追記に失敗しました",
+        description:
+          err instanceof Error
+            ? err.message
+            : "時間をおいて再度お試しください。",
+        variant: "destructive",
+      });
+      return;
+    }
+    await tryAck(active.id);
+    toast({
+      title: "追記しました",
+      description: "1週間前の気づきに、今の視点を重ねました。",
+    });
+    closeDialog();
+  };
+
+  const dismiss = (id: string) => {
+    void tryAck(id);
+  };
+
   const goGrowNew = async (item: SelfResurfacing) => {
-    // Acknowledge first so the prompt doesn't linger if the navigation
-    // succeeds. `grown_from` is consumed by TipNew to pre-fill a reference
-    // to the older tip; see its loader for details.
-    await ack.mutateAsync({ id: item.id });
+    // Best-effort acknowledge, then navigate regardless. Leaving this
+    // un-caught previously meant an ack failure would abort the
+    // navigation silently — worse UX than a lingering banner.
+    await tryAck(item.id);
     navigate(`/tips/new?grown_from=${item.tip.id}`);
   };
 
@@ -159,8 +179,8 @@ export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
           <DialogHeader>
             <DialogTitle>今の視点で追記する</DialogTitle>
             <DialogDescription>
-              1週間前の気づきに、今のあなたの追記を重ねます。追記は元の気づきの末尾に
-              日付付きで追加されます。
+              1週間前の気づきに、今のあなたの追記を重ねます。追記は元の気づきの下に
+              時系列で並びます。
             </DialogDescription>
           </DialogHeader>
           {active && (
@@ -170,11 +190,19 @@ export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
               </div>
               <Textarea
                 value={addendum}
-                onChange={(e) => setAddendum(e.target.value)}
+                onChange={(e) =>
+                  setAddendum(
+                    e.target.value.slice(0, TIP_ADDENDUM_MAX_LENGTH),
+                  )
+                }
                 placeholder="今のあなたはどう感じる？"
                 rows={4}
+                maxLength={TIP_ADDENDUM_MAX_LENGTH}
                 autoFocus
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {addendum.length}/{TIP_ADDENDUM_MAX_LENGTH}
+              </p>
             </div>
           )}
           <DialogFooter>
