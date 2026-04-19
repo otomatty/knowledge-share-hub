@@ -40,14 +40,30 @@ import {
 export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
   const [ackDialogId, setAckDialogId] = useState<string | null>(null);
   const [addendum, setAddendum] = useState("");
+  // Locally-dismissed ids hide the card immediately without waiting for
+  // the `useAcknowledgeResurfacing` refetch to drop the row. Without
+  // this, 閉じる / 追記 / 再投稿 all leave the card visible until the
+  // query invalidation round-trip finishes, which reads as "閉じない".
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const navigate = useNavigate();
   const { profile } = useAuth();
   const ack = useAcknowledgeResurfacing();
   const append = useAddTipAddendum();
 
-  if (items.length === 0) return null;
+  const visibleItems = items.filter((i) => !dismissedIds.has(i.id));
+  if (visibleItems.length === 0) return null;
 
-  const active = items.find((r) => r.id === ackDialogId) ?? null;
+  const active = visibleItems.find((r) => r.id === ackDialogId) ?? null;
+
+  const hideLocally = (id: string) => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
 
   const closeDialog = () => {
     setAckDialogId(null);
@@ -89,7 +105,8 @@ export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
       });
       return;
     }
-    await tryAck(active.id);
+    hideLocally(active.id);
+    void tryAck(active.id);
     toast.success("追記しました", {
       description: "1週間前の気づきに、今の視点を重ねました。",
     });
@@ -97,14 +114,17 @@ export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
   };
 
   const dismiss = (id: string) => {
+    hideLocally(id);
     void tryAck(id);
   };
 
-  const goGrowNew = async (item: SelfResurfacing) => {
-    // Best-effort acknowledge, then navigate regardless. Leaving this
-    // un-caught previously meant an ack failure would abort the
-    // navigation silently — worse UX than a lingering banner.
-    await tryAck(item.id);
+  const goGrowNew = (item: SelfResurfacing) => {
+    // Hide locally + fire-and-forget ack, then navigate immediately.
+    // Awaiting the ack would block the transition behind a network
+    // round-trip; letting it run in the background matches the
+    // best-effort behaviour of dismiss().
+    hideLocally(item.id);
+    void tryAck(item.id);
     navigate(`/tips/new?grown_from=${item.tip.id}`);
   };
 
@@ -130,7 +150,7 @@ export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
         </div>
 
         <ul className="space-y-2">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <li
               key={item.id}
               className="rounded-md border bg-background/80 p-3 flex flex-col gap-2"
