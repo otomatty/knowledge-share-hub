@@ -288,6 +288,34 @@ export type Database = {
           follow_up_notified_at?: string | null;
         };
       };
+      tip_resurfacings: {
+        Row: {
+          id: string;
+          user_id: string;
+          tip_id: string;
+          interval_days: number;
+          surfaced_at: string;
+          acknowledged_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tip_id: string;
+          interval_days: number;
+          surfaced_at?: string;
+          acknowledged_at?: string | null;
+        };
+        Update: {
+          // Only `acknowledged_at` is user-mutable — a BEFORE trigger
+          // (00022) rejects any other column change.
+          id?: string;
+          user_id?: string;
+          tip_id?: string;
+          interval_days?: number;
+          surfaced_at?: string;
+          acknowledged_at?: string | null;
+        };
+      };
     };
     Views: {
       // Read-only view exposing tip_attempts with `user_id` masked to

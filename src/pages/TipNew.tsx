@@ -15,7 +15,7 @@ import { useTipByIdMapped } from "@/hooks/use-domain-queries";
 import { useLinkTipAttemptResult } from "@/hooks/use-tip-attempts";
 import type { Tag } from "@/types";
 import { toast } from "sonner";
-import { Repeat } from "lucide-react";
+import { Repeat, Sparkles } from "lucide-react";
 
 export default function TipNew() {
   const navigate = useNavigate();
@@ -23,6 +23,15 @@ export default function TipNew() {
   const { profile } = useAuth();
   const [searchParams] = useSearchParams();
   const sourceTipId = searchParams.get("source") ?? undefined;
+  // `grown_from` (issue #10) marks a tip as the evolved re-posting of an
+  // older self-authored tip. Unlike `source` (which writes a tip_attempts
+  // lineage row), `grown_from` is informational only: we show the prior
+  // tip in a banner so the author has their past thinking visible while
+  // writing, but the new tip is posted as a standalone row. `source`
+  // takes precedence if both params are set.
+  const grownFromTipId = sourceTipId
+    ? undefined
+    : (searchParams.get("grown_from") ?? undefined);
 
   // If ?source=<id> is present we render a "derived-from" banner and, on
   // submit, link the newly posted tip back to the source via tip_attempts.
@@ -34,6 +43,11 @@ export default function TipNew() {
     isLoading: sourceLoading,
     isError: sourceError,
   } = useTipByIdMapped(sourceTipId);
+  const {
+    data: grownFromTip,
+    isLoading: grownFromLoading,
+    isError: grownFromError,
+  } = useTipByIdMapped(grownFromTipId);
   const linkAttempt = useLinkTipAttemptResult();
 
   // TipDetail hides the CTA with `!isOwnTip`, but a user can still
@@ -50,6 +64,19 @@ export default function TipNew() {
   const sourceUnavailable =
     !!sourceTipId &&
     (sourceLoading || sourceError || !sourceTip || isSelfDerived);
+
+  // Growth mode: only valid for the current user's own tips. Navigating
+  // to `/tips/new?grown_from=<other_user_tip>` makes no product sense and
+  // we want the submit button disabled so no standalone tip is posted
+  // with a misleading "grown from" context shown in the form.
+  const isGrowthOfOther =
+    !!grownFromTipId &&
+    !!grownFromTip &&
+    !!profile &&
+    grownFromTip.author.id !== profile.id;
+  const grownFromUnavailable =
+    !!grownFromTipId &&
+    (grownFromLoading || grownFromError || !grownFromTip || isGrowthOfOther);
 
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
@@ -81,6 +108,18 @@ export default function TipNew() {
     // mutation runs. Block pre-insert so we don't orphan a tip.
     if (isSelfDerived) {
       toast.error("自分の気づきを派生元にはできません");
+      return;
+    }
+    if (grownFromTipId && !grownFromTip) {
+      if (grownFromLoading) {
+        toast.error("元の気づきの読み込み中です。少し待ってから再度お試しください");
+      } else {
+        toast.error("元の気づきが見つかりません");
+      }
+      return;
+    }
+    if (isGrowthOfOther) {
+      toast.error("育てられるのは自分の気づきだけです");
       return;
     }
     setSubmitting(true);
@@ -164,7 +203,11 @@ export default function TipNew() {
     <MainLayout showSidebar={false}>
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold mb-6">
-          {sourceTipId ? "🔁 試した結果を投稿する" : "💡 気づきを投稿する"}
+          {sourceTipId
+            ? "🔁 試した結果を投稿する"
+            : grownFromTipId
+              ? "✨ 育った気づきを投稿する"
+              : "💡 気づきを投稿する"}
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           {sourceTip && (
@@ -204,7 +247,39 @@ export default function TipNew() {
               自分の気づきを派生元にはできません。他の人の気づきから「試した結果」を投稿してください。
             </div>
           )}
-          {!sourceTipId && (
+          {grownFromTip && (
+            <div className="rounded-lg border border-amber-300/50 bg-amber-50/60 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <Sparkles className="h-3.5 w-3.5" />
+                1週間前のあなたの気づき
+              </div>
+              <Link
+                to={`/tips/${grownFromTip.id}`}
+                className="block text-sm font-medium hover:text-primary"
+              >
+                {grownFromTip.content.length > 80
+                  ? `${grownFromTip.content.slice(0, 80)}…`
+                  : grownFromTip.content}
+              </Link>
+            </div>
+          )}
+          {grownFromTipId && grownFromLoading && (
+            <div className="rounded-lg border px-4 py-3 text-xs text-muted-foreground">
+              元の気づきを読み込み中…
+            </div>
+          )}
+          {grownFromTipId &&
+            (grownFromError || (!grownFromLoading && !grownFromTip)) && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
+                元の気づきが見つかりません。URL が正しいか確認してください。
+              </div>
+            )}
+          {isGrowthOfOther && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
+              育てられるのは自分の気づきだけです。
+            </div>
+          )}
+          {!sourceTipId && !grownFromTipId && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
               <p className="text-xs text-muted-foreground mb-1">今日のお題</p>
               <p className="text-sm font-medium">{dailyPrompt}</p>
@@ -214,7 +289,9 @@ export default function TipNew() {
             <Label>
               {sourceTipId
                 ? "試してどうだった？（最大140文字）"
-                : "気づき（最大140文字）"}
+                : grownFromTipId
+                  ? "今の視点で、どう育った？（最大140文字）"
+                  : "気づき（最大140文字）"}
             </Label>
             <Textarea
               value={content}
@@ -222,7 +299,9 @@ export default function TipNew() {
               placeholder={
                 sourceTipId
                   ? "実際に試した結果・気づきを書こう"
-                  : dailyPrompt
+                  : grownFromTipId
+                    ? "1週間前と今で、どう変わった？"
+                    : dailyPrompt
               }
               className="resize-none h-24"
               maxLength={140}
@@ -250,7 +329,12 @@ export default function TipNew() {
           <div className="flex gap-2">
             <Button
               type="submit"
-              disabled={!content.trim() || submitting || sourceUnavailable}
+              disabled={
+                !content.trim() ||
+                submitting ||
+                sourceUnavailable ||
+                grownFromUnavailable
+              }
             >
               {submitting ? "投稿中…" : "投稿する"}
             </Button>
