@@ -216,7 +216,8 @@ export type Database = {
             | "comment"
             | "reply"
             | "try_it_followup"
-            | "try_it_result";
+            | "try_it_result"
+            | "resurface_self";
           content_type: "tip";
           content_id: string;
           // Nullable since migration 00020: anonymous try_it_result
@@ -234,7 +235,8 @@ export type Database = {
             | "comment"
             | "reply"
             | "try_it_followup"
-            | "try_it_result";
+            | "try_it_result"
+            | "resurface_self";
           content_type: "tip";
           content_id: string;
           actor_id?: string | null;
@@ -250,7 +252,8 @@ export type Database = {
             | "comment"
             | "reply"
             | "try_it_followup"
-            | "try_it_result";
+            | "try_it_result"
+            | "resurface_self";
           content_type?: "tip";
           content_id?: string;
           actor_id?: string | null;

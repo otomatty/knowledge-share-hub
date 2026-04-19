@@ -69,7 +69,8 @@ export type NotificationType =
   | 'comment'
   | 'reply'
   | 'try_it_followup'
-  | 'try_it_result';
+  | 'try_it_result'
+  | 'resurface_self';
 
 export interface Notification {
   id: string;

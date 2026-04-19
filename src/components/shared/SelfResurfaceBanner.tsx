@@ -11,7 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/hooks/use-toast";
+// App.tsx mounts only the Sonner toaster, not the shadcn `ui/toaster`
+// provider. Using `@/hooks/use-toast` here would render into nothing,
+// which is what the rest of the codebase (TipNew etc.) avoids by going
+// through `sonner` directly.
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useAcknowledgeResurfacing,
@@ -77,19 +81,16 @@ export function SelfResurfaceBanner({ items }: { items: SelfResurfacing[] }) {
         content: addendum,
       });
     } catch (err) {
-      toast({
-        title: "追記に失敗しました",
+      toast.error("追記に失敗しました", {
         description:
           err instanceof Error
             ? err.message
             : "時間をおいて再度お試しください。",
-        variant: "destructive",
       });
       return;
     }
     await tryAck(active.id);
-    toast({
-      title: "追記しました",
+    toast.success("追記しました", {
       description: "1週間前の気づきに、今の視点を重ねました。",
     });
     closeDialog();
