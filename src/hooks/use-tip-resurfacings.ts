@@ -131,6 +131,17 @@ export function useAcknowledgeResurfacing() {
  * per-user dedupe table on day one. If "seen" tracking becomes important
  * later, promote this into `tip_resurfacings` with `kind='feed'`.
  */
+// Pagination knobs for the feed-resurfacing scan. We page through the
+// 7–60-day window in batches and keep going until we either have
+// `limit` high-engagement matches or hit `FEED_RESURFACING_MAX_SCAN` —
+// whichever comes first. A fixed candidate cap (the old 3×limit/12 rule)
+// left the section silently empty whenever the newest few tips in the
+// window happened to be low-engagement even though qualifying older
+// tips existed further back, which is exactly the scenario flagged in
+// PR #27 round 5 review.
+const FEED_RESURFACING_PAGE_SIZE = 50;
+const FEED_RESURFACING_MAX_SCAN = 300;
+
 export function useFeedResurfacings(
   excludeUserId: string | undefined,
   opts: { limit?: number; minReactions?: number } = {},
@@ -145,51 +156,60 @@ export function useFeedResurfacings(
         now - 60 * 24 * 60 * 60 * 1000,
       ).toISOString();
 
-      // Pull a slightly larger candidate set (3× target) so we can drop
-      // any that fall below the reaction threshold after the JS-side
-      // aggregate check. Keeps the DB query cheap — PostgREST can't join
-      // to a count aggregate here without a dedicated view.
-      const candidateLimit = Math.max(limit * 3, 12);
+      const matches: Tip[] = [];
+      let offset = 0;
+      while (
+        matches.length < limit &&
+        offset < FEED_RESURFACING_MAX_SCAN
+      ) {
+        let q = supabase
+          .from("tips")
+          .select(
+            `*, author:profiles!tips_author_id_fkey(*), tip_tags(tag:tags(*))`,
+          )
+          .eq("status", "published")
+          .lt("created_at", sevenDaysAgo)
+          .gt("created_at", sixtyDaysAgo)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + FEED_RESURFACING_PAGE_SIZE - 1);
+        if (excludeUserId) {
+          q = q.neq("author_id", excludeUserId);
+        }
 
-      let q = supabase
-        .from("tips")
-        .select(
-          `*, author:profiles!tips_author_id_fkey(*), tip_tags(tag:tags(*))`,
-        )
-        .eq("status", "published")
-        .lt("created_at", sevenDaysAgo)
-        .gt("created_at", sixtyDaysAgo)
-        .order("created_at", { ascending: false })
-        .limit(candidateLimit);
-      if (excludeUserId) {
-        q = q.neq("author_id", excludeUserId);
-      }
+        const { data, error } = await q;
+        if (error) throw error;
+        const rows = (data ?? []) as TipWithJoins[];
+        if (rows.length === 0) break;
 
-      const { data, error } = await q;
-      if (error) throw error;
-      const rows = (data ?? []) as TipWithJoins[];
-      if (rows.length === 0) return [];
+        const ids = rows.map((r) => r.id);
+        const [rx, cc] = await Promise.all([
+          fetchReactionSummaries("tip", ids),
+          fetchCommentCounts("tip", ids),
+        ]);
 
-      const ids = rows.map((r) => r.id);
-      const [rx, cc] = await Promise.all([
-        fetchReactionSummaries("tip", ids),
-        fetchCommentCounts("tip", ids),
-      ]);
-
-      const mapped = rows
-        .map((r) =>
-          mapTipRow(r, rx[r.id] ?? emptyReactionSummary(), cc[r.id] ?? 0),
-        )
-        .filter((t) => {
+        for (const r of rows) {
+          const tip = mapTipRow(
+            r,
+            rx[r.id] ?? emptyReactionSummary(),
+            cc[r.id] ?? 0,
+          );
           const total =
-            t.reactions.same_thought +
-            t.reactions.new_view +
-            t.reactions.try_it +
-            t.reactions.learned;
-          return total >= minReactions;
-        })
-        .slice(0, limit);
-      return mapped;
+            tip.reactions.same_thought +
+            tip.reactions.new_view +
+            tip.reactions.try_it +
+            tip.reactions.learned;
+          if (total >= minReactions) {
+            matches.push(tip);
+            if (matches.length >= limit) break;
+          }
+        }
+
+        // The page was smaller than requested — the window is exhausted
+        // and paging further would just repeat the same empty response.
+        if (rows.length < FEED_RESURFACING_PAGE_SIZE) break;
+        offset += FEED_RESURFACING_PAGE_SIZE;
+      }
+      return matches;
     },
   });
 }
