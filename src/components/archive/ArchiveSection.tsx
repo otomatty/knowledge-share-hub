@@ -42,6 +42,14 @@ type MonthKey = string; // "YYYY-MM"
 // internal detail of the Select contract, not something exports see.
 const NO_FILTER = "\u0000all";
 
+// `monthKeyOf` and `ymd` intentionally use the viewer's local calendar,
+// not UTC. The archive answers "what did I post in March?" — if a tip
+// was written at 23:30 JST on March 31 (UTC: April 1), the user expects
+// it in the March bucket and in the March-31 calendar cell, not in
+// April 1. Same convention as `insight-prompts.ts`'s per-day rotation.
+// The machine-readable `生成日時` on exports stays UTC-ISO so data
+// consumers have an unambiguous instant, even when the human labels
+// around it are local-calendar.
 function monthKeyOf(iso: string): MonthKey {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
