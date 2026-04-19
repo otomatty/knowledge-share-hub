@@ -167,12 +167,27 @@ describe("archive-export", () => {
             tip: mkTip(),
             addendums: [],
             sourceTipId: "src-123",
-            resultTipId: "res-456",
+            resultTipIds: ["res-456"],
           },
         ]),
       );
       expect(md).toContain("派生元: src-123");
       expect(md).toContain("派生先（試した結果）: res-456");
+    });
+
+    it("lists every result tip id — multiple triers don't collapse to one", () => {
+      const md = toMarkdown(
+        mkData([
+          {
+            tip: mkTip(),
+            addendums: [],
+            resultTipIds: ["res-1", "res-2", "res-3"],
+          },
+        ]),
+      );
+      expect(md).toContain("派生先（試した結果）: res-1");
+      expect(md).toContain("派生先（試した結果）: res-2");
+      expect(md).toContain("派生先（試した結果）: res-3");
     });
 
     it("notes anonymous posts", () => {
@@ -241,7 +256,7 @@ describe("archive-export", () => {
               tags: [{ id: "t1", name: "react", category: "tech" }],
             }),
             addendums: [],
-            resultTipId: "r1",
+            resultTipIds: ["r1", "r2"],
           },
         ]),
       );
@@ -253,14 +268,15 @@ describe("archive-export", () => {
         name: "react",
         category: "tech",
       });
-      expect(parsed.entries[0].result_tip_id).toBe("r1");
+      expect(parsed.entries[0].result_tip_ids).toEqual(["r1", "r2"]);
       expect(parsed.entries[0].source_tip_id).toBeNull();
     });
 
-    it("uses nulls (not undefined) for missing linkage — JSON can't hold undefined", () => {
+    it("uses null for missing source and [] for missing results — arrays can hold 'empty' cleanly", () => {
       const json = toJson(mkData([{ tip: mkTip(), addendums: [] }]));
-      expect(json).toContain('"source_tip_id": null');
-      expect(json).toContain('"result_tip_id": null');
+      const parsed = JSON.parse(json);
+      expect(parsed.entries[0].source_tip_id).toBeNull();
+      expect(parsed.entries[0].result_tip_ids).toEqual([]);
     });
 
     it("preserves status and published_at so drafts survive a round-trip", () => {

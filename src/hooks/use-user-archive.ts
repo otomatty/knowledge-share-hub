@@ -84,16 +84,18 @@ export function useUserArchive(userId: string | undefined) {
         addendumsByTip.set(row.tip_id, list);
       }
 
-      // `resultTipId` — someone else posted a result tip in response to
-      // this source tip (owner's). If multiple people tried the same
-      // tip, we surface the earliest result; the attempts query is
-      // ordered ascending by `pledged_at` so the first write wins.
-      const resultBySource = new Map<string, string>();
+      // `resultTipIds` — every result tip other users posted in
+      // response to this source tip. Keep them all; collapsing to one
+      // would silently drop attempts from the backup whenever multiple
+      // people tried the same tip. The attempts query is ordered
+      // ascending by `pledged_at` so list order is chronological.
+      const resultsBySource = new Map<string, string[]>();
       for (const row of attemptsBySourceResp.data ?? []) {
+        if (!row.result_tip_id) continue;
         const src = row.source_tip_id as string;
-        if (row.result_tip_id && !resultBySource.has(src)) {
-          resultBySource.set(src, row.result_tip_id as string);
-        }
+        const list = resultsBySource.get(src);
+        if (list) list.push(row.result_tip_id as string);
+        else resultsBySource.set(src, [row.result_tip_id as string]);
       }
       // `sourceTipId` — this tip is a result; link back to its source
       const sourceByMyResult = new Map<string, string>();
@@ -114,7 +116,7 @@ export function useUserArchive(userId: string | undefined) {
         ),
         addendums: addendumsByTip.get(row.id) ?? [],
         sourceTipId: sourceByMyResult.get(row.id),
-        resultTipId: resultBySource.get(row.id),
+        resultTipIds: resultsBySource.get(row.id),
       }));
     },
   });

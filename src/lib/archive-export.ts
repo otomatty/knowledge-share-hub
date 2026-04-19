@@ -14,10 +14,20 @@ import type { TipAddendum } from "@/hooks/use-tip-resurfacings";
 export interface ArchiveEntry {
   tip: Tip;
   addendums: TipAddendum[];
-  /** Result tip that this tip was posted as a response to, if any. */
+  /**
+   * Source tip that this tip was posted as a response to, if any.
+   * Stays singular because the DB enforces a unique
+   * `result_tip_id` → source (migration 00011), so one result can't
+   * trace back to two sources.
+   */
   sourceTipId?: string;
-  /** Result tip id posted in response to this tip, if any. */
-  resultTipId?: string;
+  /**
+   * Every result tip posted in response to this source tip. Multiple
+   * users can try the same source and post different results, so
+   * collapsing to a single id would silently drop attempts from the
+   * backup (PR #28 coderabbit).
+   */
+  resultTipIds?: string[];
 }
 
 export interface ArchiveExportData {
@@ -144,8 +154,13 @@ export function toMarkdown(data: ArchiveExportData): string {
       if (e.sourceTipId) {
         lines.push(`- 派生元: ${e.sourceTipId}`);
       }
-      if (e.resultTipId) {
-        lines.push(`- 派生先（試した結果）: ${e.resultTipId}`);
+      if (e.resultTipIds && e.resultTipIds.length > 0) {
+        // One line per result so long id lists stay readable in diffs
+        // and no information is lost when multiple people try the same
+        // tip.
+        for (const rid of e.resultTipIds) {
+          lines.push(`- 派生先（試した結果）: ${rid}`);
+        }
       }
 
       if (e.addendums.length > 0) {
@@ -180,7 +195,12 @@ export interface ArchiveJsonEntry {
   tags: { name: string; category: "tech" | "context" }[];
   reactions: Tip["reactions"];
   source_tip_id: string | null;
-  result_tip_id: string | null;
+  /**
+   * Always an array (possibly empty). Multiple triers produce multiple
+   * result tips for the same source; backup consumers should treat
+   * this as a list rather than a single linkage.
+   */
+  result_tip_ids: string[];
   addendums: { id: string; content: string; created_at: string }[];
 }
 
@@ -210,7 +230,7 @@ export function toJson(data: ArchiveExportData): string {
       tags: e.tip.tags.map((t) => ({ name: t.name, category: t.category })),
       reactions: e.tip.reactions,
       source_tip_id: e.sourceTipId ?? null,
-      result_tip_id: e.resultTipId ?? null,
+      result_tip_ids: e.resultTipIds ?? [],
       addendums: e.addendums.map((a) => ({
         id: a.id,
         content: a.content,
