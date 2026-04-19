@@ -75,6 +75,27 @@ describe("archive-export", () => {
       expect(febIdx).toBeGreaterThan(marchIdx);
     });
 
+    it("preserves the caller's within-month ordering", () => {
+      // Contract: entries are rendered in the order they're passed in
+      // (within a month). useUserArchive already orders
+      // `created_at DESC`, so trusting that avoids a redundant sort in
+      // the serialiser. This test locks the contract so a future change
+      // to the hook's order surfaces here instead of silently scrambling
+      // exports.
+      const earlier = "2026-03-01T00:00:00.000Z";
+      const later = "2026-03-20T00:00:00.000Z";
+      const md = toMarkdown(
+        mkData([
+          { tip: mkTip({ id: "later", created_at: later }), addendums: [] },
+          { tip: mkTip({ id: "earlier", created_at: earlier }), addendums: [] },
+        ]),
+      );
+      const laterIdx = md.indexOf("2026-03-20");
+      const earlierIdx = md.indexOf("2026-03-01");
+      expect(laterIdx).toBeGreaterThan(-1);
+      expect(earlierIdx).toBeGreaterThan(laterIdx);
+    });
+
     it("lists tags with leading # and puts context tags first", () => {
       const md = toMarkdown(
         mkData([

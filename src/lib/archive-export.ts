@@ -101,12 +101,12 @@ export function toMarkdown(data: ArchiveExportData): string {
   for (const mk of monthKeys) {
     lines.push(`## ${mk}`);
     lines.push("");
+    // Callers are expected to pass entries newest-first (that's the
+    // order `useUserArchive` and the public feed both produce), and the
+    // grouping above preserves insertion order per-month. No re-sort
+    // needed here — re-sorting would silently paper over a caller that
+    // passed data in a different order, hiding the upstream bug.
     const entries = byMonth.get(mk) ?? [];
-    entries.sort(
-      (a, b) =>
-        new Date(b.tip.created_at).getTime() -
-        new Date(a.tip.created_at).getTime(),
-    );
     for (const e of entries) {
       const t = e.tip;
       lines.push(`### ${isoDate(t.created_at)}`);

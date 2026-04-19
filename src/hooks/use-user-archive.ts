@@ -41,12 +41,14 @@ export function useUserArchive(userId: string | undefined) {
 
       const tipIds = tipRows.map((r) => r.id);
 
-      // Three parallel aggregate fetches. The tip_attempts_public view
-      // un-masks `user_id` for the owner of the row, so `.eq("user_id", userId)`
-      // matches every attempt this user made (for resultTipId lookup) —
-      // and the WHERE result_tip_id clause covers the anonymous-result
-      // case for sourceTipId lookup.
-      const [rx, cc, addendumsResp, attemptsAsOwnerResp, attemptsByResultResp] =
+      // Both attempt fetches are scoped to tipIds so the query stays
+      // bounded as the user's archive grows. Self-attempts are blocked
+      // at the DB layer (migration 00010), which is why
+      // `attemptsBySource` drops the `user_id = me` filter — the useful
+      // rows are attempts by OTHER users targeting the owner's source
+      // tips, not the owner's own attempts on those same tips (that set
+      // is provably empty).
+      const [rx, cc, addendumsResp, attemptsBySourceResp, attemptsByResultResp] =
         await Promise.all([
           fetchReactionSummaries("tip", tipIds),
           fetchCommentCounts("tip", tipIds),
@@ -57,15 +59,16 @@ export function useUserArchive(userId: string | undefined) {
             .order("created_at", { ascending: true }),
           supabase
             .from("tip_attempts_public")
-            .select("source_tip_id, result_tip_id, user_id")
-            .eq("user_id", userId!),
+            .select("source_tip_id, result_tip_id, pledged_at")
+            .in("source_tip_id", tipIds)
+            .order("pledged_at", { ascending: true }),
           supabase
             .from("tip_attempts_public")
             .select("source_tip_id, result_tip_id")
             .in("result_tip_id", tipIds),
         ]);
       if (addendumsResp.error) throw addendumsResp.error;
-      if (attemptsAsOwnerResp.error) throw attemptsAsOwnerResp.error;
+      if (attemptsBySourceResp.error) throw attemptsBySourceResp.error;
       if (attemptsByResultResp.error) throw attemptsByResultResp.error;
 
       const addendumsByTip = new Map<string, TipAddendum[]>();
@@ -81,14 +84,15 @@ export function useUserArchive(userId: string | undefined) {
         addendumsByTip.set(row.tip_id, list);
       }
 
-      // `resultTipId` — this source-tip produced a result tip by the owner
-      const resultByMySource = new Map<string, string>();
-      for (const row of attemptsAsOwnerResp.data ?? []) {
-        if (row.result_tip_id) {
-          resultByMySource.set(
-            row.source_tip_id as string,
-            row.result_tip_id as string,
-          );
+      // `resultTipId` — someone else posted a result tip in response to
+      // this source tip (owner's). If multiple people tried the same
+      // tip, we surface the earliest result; the attempts query is
+      // ordered ascending by `pledged_at` so the first write wins.
+      const resultBySource = new Map<string, string>();
+      for (const row of attemptsBySourceResp.data ?? []) {
+        const src = row.source_tip_id as string;
+        if (row.result_tip_id && !resultBySource.has(src)) {
+          resultBySource.set(src, row.result_tip_id as string);
         }
       }
       // `sourceTipId` — this tip is a result; link back to its source
@@ -110,7 +114,7 @@ export function useUserArchive(userId: string | undefined) {
         ),
         addendums: addendumsByTip.get(row.id) ?? [],
         sourceTipId: sourceByMyResult.get(row.id),
-        resultTipId: resultByMySource.get(row.id),
+        resultTipId: resultBySource.get(row.id),
       }));
     },
   });
