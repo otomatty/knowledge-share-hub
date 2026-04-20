@@ -97,11 +97,14 @@ export function useToggleTagFollow() {
  * recency. Empty array when the viewer follows nothing — callers render
  * an empty-state prompt in that case.
  *
- * Implementation note: we fetch followed tag_ids first (small read,
- * covered by the (user_id, tag_id) PK), then the matching tip_ids from
- * `tip_tags`, then run the same tip-select shape `useTipsMapped` uses.
- * The tip read is the one that dominates; it stays a single query with
- * a server-side `in (…)` to avoid N+1.
+ * Implementation note: one small SELECT for the viewer's followed
+ * tag_ids (covered by the (user_id, tag_id) PK), then a *single* tips
+ * query with `tip_tags!inner(tag_id)` that filters server-side via
+ * `in ("tip_tags.tag_id", …)`. The inner join pushes the match into
+ * PostgREST so we don't fan out to a separate `tip_tags` lookup and
+ * don't risk the 1000-row default reply cap truncating the set of
+ * candidate tip_ids. Tips with multiple matching followed tags appear
+ * once each thanks to client-side dedup on `id`.
  */
 export function useTipsFollowedByTags(userId: string | undefined) {
   return useQuery({
@@ -116,26 +119,25 @@ export function useTipsFollowedByTags(userId: string | undefined) {
       const tagIds = (followRows ?? []).map((r) => r.tag_id);
       if (tagIds.length === 0) return [];
 
-      const { data: tipTagRows, error: tipTagErr } = await supabase
-        .from("tip_tags")
-        .select("tip_id")
-        .in("tag_id", tagIds);
-      if (tipTagErr) throw tipTagErr;
-      const tipIds = Array.from(
-        new Set((tipTagRows ?? []).map((r) => r.tip_id)),
-      );
-      if (tipIds.length === 0) return [];
-
       const { data, error } = await supabase
         .from("tips")
         .select(
-          `*, author:profiles!tips_author_id_fkey(*), tip_tags(tag:tags(*))`,
+          `*, author:profiles!tips_author_id_fkey(*), tip_tags!inner(tag:tags(*))`,
         )
         .eq("status", "published")
-        .in("id", tipIds)
+        .in("tip_tags.tag_id", tagIds)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      const rows = (data ?? []) as TipWithJoins[];
+      const rawRows = (data ?? []) as TipWithJoins[];
+      // A tip that carries two followed tags would otherwise show up
+      // twice. Keep the first (already in recency order) per id.
+      const seen = new Set<string>();
+      const rows: TipWithJoins[] = [];
+      for (const r of rawRows) {
+        if (seen.has(r.id)) continue;
+        seen.add(r.id);
+        rows.push(r);
+      }
       const ids = rows.map((r) => r.id);
       const [rx, cc] = await Promise.all([
         fetchReactionSummaries("tip", ids),

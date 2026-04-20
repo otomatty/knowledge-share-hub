@@ -22,7 +22,13 @@ export default function Index() {
   const [tab, setTab] = useState<FeedTab>("all");
   const { profile } = useAuth();
   const tipsQ = useTipsMapped();
-  const followedQ = useTipsFollowedByTags(profile?.id);
+  // Defer the (heavier) followed-tags query until the user actually
+  // opens the tab. `useTipsFollowedByTags` disables itself when the
+  // userId arg is undefined, so this becomes a no-op on first load
+  // for users who never switch to "フォロー中".
+  const followedQ = useTipsFollowedByTags(
+    tab === "followed" ? profile?.id : undefined,
+  );
   const selfResurfQ = useSelfResurfacings(profile?.id);
   const feedResurfQ = useFeedResurfacings(profile?.id);
 
