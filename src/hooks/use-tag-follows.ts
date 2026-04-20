@@ -43,29 +43,35 @@ export function useMyTagFollows(userId: string | undefined) {
 }
 
 /**
- * Toggle the (userId, tagId) follow relation. Read-then-branch so the
- * UI can call the same mutation from both "follow" and "unfollow"
- * buttons without maintaining a current-state prop on the caller.
+ * Toggle the (userId, tagId) follow relation.
  *
- * Invalidates both the follow list and the "followed-tags feed" so the
- * Index.tsx tab reflects the change immediately after the user toggles
- * from the sidebar or search page.
+ * Both paths are idempotent by design so concurrent clicks from
+ * multiple tabs or from different surfaces (sidebar + search) can't
+ * produce a spurious error:
+ *
+ *  - Follow is an upsert against the (user_id, tag_id) composite PK
+ *    with `ignoreDuplicates: true`. A second parallel follow lands
+ *    a no-op instead of failing the unique constraint.
+ *  - Unfollow is a plain DELETE; deleting a row that isn't there is
+ *    a Postgres no-op, not an error.
+ *
+ * The caller passes `isFollowed` (the state rendered on the button at
+ * click time) so we don't do a read-before-write — that SELECT was the
+ * racey half of the old implementation. The cache is still the source
+ * of truth, so the callback and the invalidations stay the same.
  */
 export function useToggleTagFollow() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { userId: string; tagId: string }) => {
-      const { userId, tagId } = params;
-      const { data: existing, error: selErr } = await supabase
-        .from("tag_follows")
-        .select("tag_id")
-        .eq("user_id", userId)
-        .eq("tag_id", tagId)
-        .maybeSingle();
-      if (selErr) throw selErr;
+    mutationFn: async (params: {
+      userId: string;
+      tagId: string;
+      isFollowed: boolean;
+    }) => {
+      const { userId, tagId, isFollowed } = params;
 
-      if (existing) {
+      if (isFollowed) {
         const { error } = await supabase
           .from("tag_follows")
           .delete()
@@ -77,7 +83,10 @@ export function useToggleTagFollow() {
 
       const { error } = await supabase
         .from("tag_follows")
-        .insert({ user_id: userId, tag_id: tagId });
+        .upsert(
+          { user_id: userId, tag_id: tagId },
+          { onConflict: "user_id,tag_id", ignoreDuplicates: true },
+        );
       if (error) throw error;
       return { followed: true } as const;
     },

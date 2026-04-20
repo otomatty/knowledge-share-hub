@@ -12,7 +12,10 @@ import {
   useFeedResurfacings,
   useSelfResurfacings,
 } from "@/hooks/use-tip-resurfacings";
-import { useTipsFollowedByTags } from "@/hooks/use-tag-follows";
+import {
+  useMyTagFollows,
+  useTipsFollowedByTags,
+} from "@/hooks/use-tag-follows";
 import { useAuth } from "@/contexts/AuthContext";
 
 type FeedTab = "all" | "followed";
@@ -29,6 +32,11 @@ export default function Index() {
   const followedQ = useTipsFollowedByTags(
     tab === "followed" ? profile?.id : undefined,
   );
+  // The follow list itself is a tiny read and has to run regardless
+  // of the active tab — the empty-state copy depends on *whether the
+  // user follows any tag*, which `followedQ` can't tell us apart from
+  // "followed tags exist but no matching tips".
+  const myFollowsQ = useMyTagFollows(profile?.id);
   const selfResurfQ = useSelfResurfacings(profile?.id);
   const feedResurfQ = useFeedResurfacings(profile?.id);
 
@@ -97,17 +105,29 @@ export default function Index() {
           </TabsContent>
 
           <TabsContent value="followed" className="mt-3">
-            {followedQ.isLoading ? (
+            {followedQ.isError ? (
+              <p className="text-destructive text-center py-12">
+                気づきの読み込みに失敗しました。時間をおいて再度お試しください。
+              </p>
+            ) : followedQ.isLoading || myFollowsQ.isLoading ? (
               <p className="text-center text-muted-foreground py-12">
                 読み込み中…
               </p>
-            ) : followedTips.length === 0 ? (
+            ) : (myFollowsQ.data?.size ?? 0) === 0 ? (
+              // Actually zero follows — push the user to the search page
+              // so they can start curating.
               <p className="text-center text-muted-foreground py-12">
                 フォロー中のタグがまだありません。
                 <Link to="/search" className="text-primary hover:underline ml-1">
                   検索画面
                 </Link>
                 からタグをフォローしましょう。
+              </p>
+            ) : followedTips.length === 0 ? (
+              // Has follows but nothing published matches yet — don't
+              // nudge them to follow more, just explain the state.
+              <p className="text-center text-muted-foreground py-12">
+                フォロー中のタグに該当する気づきはまだありません。
               </p>
             ) : (
               <div className="bg-card rounded-lg border">

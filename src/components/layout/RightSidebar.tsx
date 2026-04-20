@@ -114,19 +114,19 @@ export function RightSidebar() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {trendingTags.context.map(({ tag }) => (
-                <Link
-                  key={tag.id}
-                  to={`/search?tag=${encodeURIComponent(tag.name)}`}
-                >
-                  <Badge
-                    variant="outline"
-                    className="border-kh-purple/40 text-kh-purple hover:bg-kh-purple/10 cursor-pointer"
-                  >
-                    {tag.name}
-                  </Badge>
-                </Link>
+                <div key={tag.id} className="flex items-center gap-0.5">
+                  <Link to={`/search?tag=${encodeURIComponent(tag.name)}`}>
+                    <Badge
+                      variant="outline"
+                      className="border-kh-purple/40 text-kh-purple hover:bg-kh-purple/10 cursor-pointer"
+                    >
+                      {tag.name}
+                    </Badge>
+                  </Link>
+                  <TagFollowButton tag={tag} />
+                </div>
               ))}
             </div>
           </CardContent>
@@ -141,16 +141,22 @@ export function RightSidebar() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {trendingTags.tech.map(({ tag }) => (
-              <Link key={tag.id} to={`/search?tag=${encodeURIComponent(tag.name)}`}>
-                <Badge
-                  variant="secondary"
-                  className="hover:bg-primary/10 hover:text-primary cursor-pointer"
-                >
-                  {tag.name}
-                </Badge>
-              </Link>
+              <div key={tag.id} className="flex items-center gap-0.5">
+                <Link to={`/search?tag=${encodeURIComponent(tag.name)}`}>
+                  <Badge
+                    variant="secondary"
+                    className="hover:bg-primary/10 hover:text-primary cursor-pointer"
+                  >
+                    {tag.name}
+                  </Badge>
+                </Link>
+                {/* Tech tags need an in-app follow entry point too
+                    (SearchPage only surfaces context chips); adding
+                    the bell here covers the tech-only follower flow. */}
+                <TagFollowButton tag={tag} />
+              </div>
             ))}
           </div>
         </CardContent>

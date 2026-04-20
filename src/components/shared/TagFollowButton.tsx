@@ -33,7 +33,7 @@ export function TagFollowButton({ tag, size = "inline" }: TagFollowButtonProps) 
     e.stopPropagation();
     if (!profile) return;
     toggle.mutate(
-      { userId: profile.id, tagId: tag.id },
+      { userId: profile.id, tagId: tag.id, isFollowed },
       {
         onSuccess: (res) => {
           toast.success(
