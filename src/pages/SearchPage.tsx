@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ContentCard } from "@/components/shared/ContentCard";
 import { TagFollowButton } from "@/components/shared/TagFollowButton";
 import { Search as SearchIcon } from "lucide-react";
-import { useTipsMapped } from "@/hooks/use-domain-queries";
+import { useTipsMapped, useTrendingTags } from "@/hooks/use-domain-queries";
 import { useTags } from "@/hooks/use-supabase-query";
 
 export default function SearchPage() {
@@ -17,6 +17,7 @@ export default function SearchPage() {
 
   const tipsQ = useTipsMapped();
   const { data: dbTags = [] } = useTags();
+  const { data: trendingTags = { tech: [], context: [] } } = useTrendingTags();
   const contextTags = dbTags.filter((t) => t.category === "context");
   const loading = tipsQ.isLoading;
 
@@ -128,6 +129,38 @@ export default function SearchPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+        {/* Mobile-visible follow entry point for tech tags. The
+            RightSidebar trending "技術タグ" card is `hidden lg:block`,
+            so without this section phone/tablet users would have no
+            UI path to follow a tech tag. Chip click populates the
+            keyword field (same legacy behaviour as `?tag=<tech>`
+            inbound links), the bell follows/unfollows. */}
+        {trendingTags.tech.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs text-muted-foreground mb-2">
+              技術タグで絞り込み
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {trendingTags.tech.map(({ tag }) => (
+                <div key={tag.id} className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => handleQueryChange(tag.name)}
+                    className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
+                  >
+                    <Badge
+                      variant="secondary"
+                      className="hover:bg-primary/10 hover:text-primary cursor-pointer"
+                    >
+                      {tag.name}
+                    </Badge>
+                  </button>
+                  <TagFollowButton tag={tag} />
+                </div>
+              ))}
             </div>
           </div>
         )}

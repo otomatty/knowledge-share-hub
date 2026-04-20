@@ -6,6 +6,7 @@ import {
   fetchReactionSummaries,
 } from "@/lib/reaction-aggregates";
 import { mapTipRow, type TipWithJoins } from "@/lib/supabase-mappers";
+import { fetchAllPagesChunked } from "@/lib/supabase-pagination";
 import type { Tip } from "@/types";
 
 /**
@@ -106,14 +107,26 @@ export function useToggleTagFollow() {
  * recency. Empty array when the viewer follows nothing — callers render
  * an empty-state prompt in that case.
  *
- * Implementation note: one small SELECT for the viewer's followed
- * tag_ids (covered by the (user_id, tag_id) PK), then a *single* tips
- * query with `tip_tags!inner(tag_id)` that filters server-side via
- * `in ("tip_tags.tag_id", …)`. The inner join pushes the match into
- * PostgREST so we don't fan out to a separate `tip_tags` lookup and
- * don't risk the 1000-row default reply cap truncating the set of
- * candidate tip_ids. Tips with multiple matching followed tags appear
- * once each thanks to client-side dedup on `id`.
+ * Implementation is a two-step fetch, intentionally *not* a single
+ * `tip_tags!inner(...)` embed. PostgREST applies embedding filters to
+ * the embedded resource itself, so a `.in("tip_tags.tag_id", tagIds)`
+ * narrows the returned `tip_tags` array to only the followed tags —
+ * which would strip any non-followed tags off the tip payload and
+ * leave ContentCard rendering an incomplete tag chip row. Step 1
+ * finds matching tip_ids; step 2 re-fetches those tips with the same
+ * normal left-join shape `useTipsMapped` uses, preserving the full
+ * tag set per tip.
+ *
+ *   1. `tag_follows` → the viewer's followed tag_ids (tiny; PK-covered).
+ *   2. `tip_tags WHERE tag_id IN (…)` → candidate tip_ids. Paginated
+ *      via `fetchAllPagesChunked` because a user following popular
+ *      tags can blow past the 1000-row PostgREST default; chunking
+ *      also keeps the `.in(tag_id, …)` URL under reverse-proxy limits.
+ *   3. `tips WHERE id IN (…)` with the standard embed. Chunked for
+ *      the same URL-length reason on tipIds; published+recency filter
+ *      and final ordering are applied per chunk, then we sort the
+ *      merged result (chunks complete in parallel so cross-chunk
+ *      order isn't guaranteed by the server).
  */
 export function useTipsFollowedByTags(userId: string | undefined) {
   return useQuery({
@@ -128,25 +141,45 @@ export function useTipsFollowedByTags(userId: string | undefined) {
       const tagIds = (followRows ?? []).map((r) => r.tag_id);
       if (tagIds.length === 0) return [];
 
-      const { data, error } = await supabase
-        .from("tips")
-        .select(
-          `*, author:profiles!tips_author_id_fkey(*), tip_tags!inner(tag:tags(*))`,
-        )
-        .eq("status", "published")
-        .in("tip_tags.tag_id", tagIds)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      const rawRows = (data ?? []) as TipWithJoins[];
-      // A tip that carries two followed tags would otherwise show up
-      // twice. Keep the first (already in recency order) per id.
-      const seen = new Set<string>();
-      const rows: TipWithJoins[] = [];
-      for (const r of rawRows) {
-        if (seen.has(r.id)) continue;
-        seen.add(r.id);
-        rows.push(r);
-      }
+      // Step 2: paginate+chunk tip_tags to get candidate tip_ids.
+      const tipTagRows = await fetchAllPagesChunked<{ tip_id: string }>(
+        tagIds,
+        (chunk, from, to) =>
+          supabase
+            .from("tip_tags")
+            .select("tip_id")
+            .in("tag_id", chunk)
+            .order("tip_id", { ascending: true })
+            .range(from, to),
+      );
+      const tipIds = Array.from(new Set(tipTagRows.map((r) => r.tip_id)));
+      if (tipIds.length === 0) return [];
+
+      // Step 3: fetch full tip payloads (with *all* tags, not just the
+      // followed subset). Chunk on tipIds to stay under URL length caps.
+      const rows = await fetchAllPagesChunked<TipWithJoins>(
+        tipIds,
+        (chunk, from, to) =>
+          supabase
+            .from("tips")
+            .select(
+              `*, author:profiles!tips_author_id_fkey(*), tip_tags(tag:tags(*))`,
+            )
+            .eq("status", "published")
+            .in("id", chunk)
+            // Stable total order inside each chunk — `created_at` ties
+            // are broken by `id` so pagination never overlaps/skips.
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, to),
+      );
+      // Chunks resolve in parallel, so merged output isn't globally
+      // sorted — re-sort for recency. Same tie-break as the builder.
+      rows.sort((a, b) => {
+        const d = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return d !== 0 ? d : a.id.localeCompare(b.id);
+      });
+
       const ids = rows.map((r) => r.id);
       const [rx, cc] = await Promise.all([
         fetchReactionSummaries("tip", ids),
