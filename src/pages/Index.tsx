@@ -73,8 +73,16 @@ export default function Index() {
           </p>
         </div>
 
+        {/* SelfResurfaceBanner is a self-reflection nudge on the
+            viewer's *own* past tip (issue #10), not a feed item —
+            it stays visible across tabs so switching to フォロー中
+            doesn't silently swallow the one-time 1-week prompt. */}
         <SelfResurfaceBanner items={selfResurfacings} />
-        <ResurfacedFeedSection tips={feedResurfacings} />
+        {/* ResurfacedFeedSection surfaces *other users'* old tips,
+            so it's feed-shaped content and belongs only on the
+            unfiltered すべて tab. Hiding it on フォロー中 honours the
+            "followed tags only" contract the user asked for. */}
+        {tab === "all" && <ResurfacedFeedSection tips={feedResurfacings} />}
 
         <Tabs
           value={tab}

@@ -22,8 +22,16 @@ export function TagFollowButton({ tag, size = "inline" }: TagFollowButtonProps) 
   const { data: followed } = useMyTagFollows(profile?.id);
   const toggle = useToggleTagFollow();
 
+  // `followed === undefined` means the follow-list query hasn't
+  // resolved yet (initial load, post-invalidate refetch, or error).
+  // In that window `isFollowed` defaults to false, which would make
+  // an already-followed tag render as "not followed" and let a
+  // click go down the upsert path — the user would then see a
+  // misleading "フォローしました" toast for a tag they already follow.
+  // Gate interactivity until the state is actually known.
+  const followStateKnown = followed !== undefined;
   const isFollowed = followed?.has(tag.id) ?? false;
-  const disabled = !profile || toggle.isPending;
+  const disabled = !profile || toggle.isPending || !followStateKnown;
 
   const handleClick = (e: React.MouseEvent) => {
     // Sibling chips are often wrapped in a Link / filter button;
