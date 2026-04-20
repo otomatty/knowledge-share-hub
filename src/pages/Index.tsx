@@ -105,7 +105,13 @@ export default function Index() {
           </TabsContent>
 
           <TabsContent value="followed" className="mt-3">
-            {followedQ.isError ? (
+            {/* Order matters: check error before loading/empty, since
+                an errored query has `data === undefined` and would
+                otherwise fall into the "no follows yet" branch and
+                mislead the user into following tags they may already
+                have followed. Both error paths are merged since the
+                copy is the same. */}
+            {followedQ.isError || myFollowsQ.isError ? (
               <p className="text-destructive text-center py-12">
                 気づきの読み込みに失敗しました。時間をおいて再度お試しください。
               </p>

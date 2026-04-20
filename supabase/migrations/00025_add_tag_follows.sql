@@ -29,6 +29,18 @@ create table knowledge_share_hub.tag_follows (
 create index idx_ksh_tag_follows_tag
   on knowledge_share_hub.tag_follows(tag_id);
 
+-- Supporting index for the followed-feed query (`useTipsFollowedByTags`),
+-- which filters tip_tags by tag_id — "give me every tip carrying any
+-- of these followed tags". The existing tip_tags PK is (tip_id, tag_id),
+-- so only the leading tip_id is indexed; without this index a SELECT
+-- filtered on tag_id alone falls back to a sequential scan. Not
+-- strictly new with this feature (other flows also read by tag_id),
+-- but the followed-feed is the first path that scans tip_tags at the
+-- tag_id edge on every open of the フォロー中 tab, so adding it now
+-- prevents a latency regression on popular tags.
+create index if not exists idx_ksh_tip_tags_tag
+  on knowledge_share_hub.tip_tags(tag_id);
+
 alter table knowledge_share_hub.tag_follows enable row level security;
 
 -- Viewing: a follow row is visible only to its own follower. This is
