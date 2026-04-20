@@ -4,6 +4,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ContentCard } from "@/components/shared/ContentCard";
+import { TagFollowButton } from "@/components/shared/TagFollowButton";
 import { Search as SearchIcon } from "lucide-react";
 import { useTipsMapped } from "@/hooks/use-domain-queries";
 import { useTags } from "@/hooks/use-supabase-query";
@@ -106,23 +107,25 @@ export default function SearchPage() {
               {contextTags.map((tag) => {
                 const active = contextFilter === tag.name;
                 return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleContextFilter(tag.name)}
-                    className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
-                  >
-                    <Badge
-                      variant={active ? "default" : "outline"}
-                      className={
-                        active
-                          ? "bg-kh-purple text-white hover:bg-kh-purple/80 cursor-pointer"
-                          : "border-kh-purple/40 text-kh-purple hover:bg-kh-purple/10 cursor-pointer"
-                      }
+                  <div key={tag.id} className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleContextFilter(tag.name)}
+                      className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
                     >
-                      {tag.name}
-                    </Badge>
-                  </button>
+                      <Badge
+                        variant={active ? "default" : "outline"}
+                        className={
+                          active
+                            ? "bg-kh-purple text-white hover:bg-kh-purple/80 cursor-pointer"
+                            : "border-kh-purple/40 text-kh-purple hover:bg-kh-purple/10 cursor-pointer"
+                        }
+                      >
+                        {tag.name}
+                      </Badge>
+                    </button>
+                    <TagFollowButton tag={tag} />
+                  </div>
                 );
               })}
             </div>

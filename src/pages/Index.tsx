@@ -1,21 +1,28 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ContentCard } from "@/components/shared/ContentCard";
 import { TipsDialog } from "@/components/shared/TipsDialog";
 import { SelfResurfaceBanner } from "@/components/shared/SelfResurfaceBanner";
 import { ResurfacedFeedSection } from "@/components/shared/ResurfacedFeedSection";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessageSquarePlus } from "lucide-react";
 import { useTipsMapped } from "@/hooks/use-domain-queries";
 import {
   useFeedResurfacings,
   useSelfResurfacings,
 } from "@/hooks/use-tip-resurfacings";
+import { useTipsFollowedByTags } from "@/hooks/use-tag-follows";
 import { useAuth } from "@/contexts/AuthContext";
+
+type FeedTab = "all" | "followed";
 
 export default function Index() {
   const [tipDialogOpen, setTipDialogOpen] = useState(false);
+  const [tab, setTab] = useState<FeedTab>("all");
   const { profile } = useAuth();
   const tipsQ = useTipsMapped();
+  const followedQ = useTipsFollowedByTags(profile?.id);
   const selfResurfQ = useSelfResurfacings(profile?.id);
   const feedResurfQ = useFeedResurfacings(profile?.id);
 
@@ -38,6 +45,7 @@ export default function Index() {
   }
 
   const tips = tipsQ.data ?? [];
+  const followedTips = followedQ.data ?? [];
   const selfResurfacings = selfResurfQ.data ?? [];
   const feedResurfacings = feedResurfQ.data ?? [];
 
@@ -54,21 +62,60 @@ export default function Index() {
         <SelfResurfaceBanner items={selfResurfacings} />
         <ResurfacedFeedSection tips={feedResurfacings} />
 
-        {tips.length === 0 ? (
-          <p className="text-center text-muted-foreground py-12">
-            まだ気づきが投稿されていません
-          </p>
-        ) : (
-          <div className="bg-card rounded-lg border">
-            <div className="divide-y">
-              {tips.map((tip) => (
-                <div key={tip.id} className="px-4">
-                  <ContentCard data={tip} />
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as FeedTab)}
+          className="mb-3"
+        >
+          <TabsList>
+            <TabsTrigger value="all">すべて</TabsTrigger>
+            <TabsTrigger value="followed">フォロー中</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="mt-3">
+            {tips.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">
+                まだ気づきが投稿されていません
+              </p>
+            ) : (
+              <div className="bg-card rounded-lg border">
+                <div className="divide-y">
+                  {tips.map((tip) => (
+                    <div key={tip.id} className="px-4">
+                      <ContentCard data={tip} />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="followed" className="mt-3">
+            {followedQ.isLoading ? (
+              <p className="text-center text-muted-foreground py-12">
+                読み込み中…
+              </p>
+            ) : followedTips.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">
+                フォロー中のタグがまだありません。
+                <Link to="/search" className="text-primary hover:underline ml-1">
+                  検索画面
+                </Link>
+                からタグをフォローしましょう。
+              </p>
+            ) : (
+              <div className="bg-card rounded-lg border">
+                <div className="divide-y">
+                  {followedTips.map((tip) => (
+                    <div key={tip.id} className="px-4">
+                      <ContentCard data={tip} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </section>
 
       <button

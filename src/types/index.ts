@@ -87,6 +87,15 @@ export interface Notification {
   message: string;
 }
 
+// A user's private follow of a tag (tech or context). The relation is
+// scoped to the follower by RLS; no API surface exposes follower counts
+// to third parties (issue #12: "フォロワー数は表示しない").
+export interface TagFollow {
+  user_id: string;
+  tag_id: string;
+  followed_at: string;
+}
+
 // Pledge record: "user X said they'd try tip Y; eventually posted result tip Z"
 export interface TipAttempt {
   id: string;

@@ -346,6 +346,25 @@ export type Database = {
           created_at?: string;
         };
       };
+      tag_follows: {
+        Row: {
+          user_id: string;
+          tag_id: string;
+          followed_at: string;
+        };
+        Insert: {
+          user_id: string;
+          tag_id: string;
+          followed_at?: string;
+        };
+        // Rows carry no user-mutable state; toggling is delete+insert.
+        // Keep Update permissive so PostgREST type-checks .from()` chains.
+        Update: {
+          user_id?: string;
+          tag_id?: string;
+          followed_at?: string;
+        };
+      };
     };
     Views: {
       // Read-only view exposing tip_attempts with `user_id` masked to
