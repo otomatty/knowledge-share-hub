@@ -118,6 +118,7 @@ export default function SearchPage() {
                     <button
                       type="button"
                       onClick={() => toggleContextFilter(tag.name)}
+                      aria-pressed={active}
                       className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
                     >
                       <Badge
