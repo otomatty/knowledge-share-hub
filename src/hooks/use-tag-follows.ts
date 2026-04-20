@@ -142,6 +142,16 @@ export function useTipsFollowedByTags(userId: string | undefined) {
       if (tagIds.length === 0) return [];
 
       // Step 2: paginate+chunk tip_tags to get candidate tip_ids.
+      // `tip_id` is NOT unique here — a single tip can carry several
+      // followed tags within the same chunk — so ordering by tip_id
+      // alone isn't a stable total order, and `fetchAllPages`
+      // contract (supabase-pagination.ts) would then occasionally
+      // skip rows at page boundaries. `tag_id` is the natural
+      // tie-breaker: `(tip_id, tag_id)` is the table's composite PK
+      // so the pair is unique. A skipped row would drop a candidate
+      // tip_id entirely — `new Set()` absorbs duplicates, but it
+      // cannot recover omitted ids — so the tie-break is required,
+      // not cosmetic.
       const tipTagRows = await fetchAllPagesChunked<{ tip_id: string }>(
         tagIds,
         (chunk, from, to) =>
@@ -150,6 +160,7 @@ export function useTipsFollowedByTags(userId: string | undefined) {
             .select("tip_id")
             .in("tag_id", chunk)
             .order("tip_id", { ascending: true })
+            .order("tag_id", { ascending: true })
             .range(from, to),
       );
       const tipIds = Array.from(new Set(tipTagRows.map((r) => r.tip_id)));

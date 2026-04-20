@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ContentCard } from "@/components/shared/ContentCard";
 import { TagFollowButton } from "@/components/shared/TagFollowButton";
 import { Search as SearchIcon } from "lucide-react";
-import { useTipsMapped, useTrendingTags } from "@/hooks/use-domain-queries";
+import { useTipsMapped } from "@/hooks/use-domain-queries";
 import { useTags } from "@/hooks/use-supabase-query";
 
 export default function SearchPage() {
@@ -17,8 +17,14 @@ export default function SearchPage() {
 
   const tipsQ = useTipsMapped();
   const { data: dbTags = [] } = useTags();
-  const { data: trendingTags = { tech: [], context: [] } } = useTrendingTags();
   const contextTags = dbTags.filter((t) => t.category === "context");
+  // Render *all* tech tags here, not just the trending top-N. The
+  // RightSidebar "技術タグ" card is popularity-limited by design
+  // (trending surface), but this section is the canonical
+  // browse-and-follow entry point, so newly created or
+  // low-frequency tags still need a follow control somewhere —
+  // otherwise users can't follow them at all.
+  const techTags = dbTags.filter((t) => t.category === "tech");
   const loading = tipsQ.isLoading;
 
   // The URL is the source of truth. Keep local `query` / `contextFilter` in
@@ -133,18 +139,19 @@ export default function SearchPage() {
           </div>
         )}
         {/* Mobile-visible follow entry point for tech tags. The
-            RightSidebar trending "技術タグ" card is `hidden lg:block`,
-            so without this section phone/tablet users would have no
-            UI path to follow a tech tag. Chip click populates the
-            keyword field (same legacy behaviour as `?tag=<tech>`
-            inbound links), the bell follows/unfollows. */}
-        {trendingTags.tech.length > 0 && (
+            RightSidebar trending "技術タグ" card is `hidden lg:block`
+            *and* popularity-limited, so phone/tablet users and anyone
+            looking for a less-used tag need this full list as a
+            reachable follow surface. Chip click populates the keyword
+            field (same legacy behaviour as `?tag=<tech>` inbound
+            links), the bell follows/unfollows. */}
+        {techTags.length > 0 && (
           <div className="mb-6">
             <p className="text-xs text-muted-foreground mb-2">
               技術タグで絞り込み
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {trendingTags.tech.map(({ tag }) => (
+              {techTags.map((tag) => (
                 <div key={tag.id} className="flex items-center gap-0.5">
                   <button
                     type="button"
