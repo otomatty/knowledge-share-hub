@@ -14,6 +14,14 @@ export default function SearchPage() {
   const initialQuery = searchParams.get("q") || searchParams.get("tag") || "";
   const [query, setQuery] = useState(initialQuery);
   const [contextFilter, setContextFilter] = useState<string | null>(null);
+  // Tech-tag filter is a strict tag-name equality match against
+  // `tip.tags` where `category === "tech"` — not a substring keyword
+  // search. Previously the tech chip populated the keyword input,
+  // which meant "react" matched any tip whose *content* contained
+  // "react" as a substring (e.g. tips talking about React Native
+  // without the tag, or unrelated usages like "reactive" / "react to").
+  // That contradicts the "技術タグで絞り込み" section label.
+  const [techFilter, setTechFilter] = useState<string | null>(null);
 
   const tipsQ = useTipsMapped();
   const { data: dbTags = [] } = useTags();
@@ -58,10 +66,20 @@ export default function SearchPage() {
     setSearchParams(next, { replace: true });
   };
 
+  // Tech filter lives in local state only — not URL-synced in this
+  // PR to avoid colliding with the legacy `?tag=<tech>` keyword-
+  // populator path that inbound links from other pages rely on.
+  // Migrating those links to a new `?techtag=` param is a separate
+  // cleanup; for now, opt-in strict matching happens only when a
+  // user clicks a tech chip on this page.
+  const toggleTechFilter = (name: string) => {
+    setTechFilter((current) => (current === name ? null : name));
+  };
+
   const results = useMemo(() => {
     const q = query.toLowerCase();
     const all = tipsQ.data ?? [];
-    if (!q && !contextFilter) return [];
+    if (!q && !contextFilter && !techFilter) return [];
     return all.filter((t) => {
       const matchesQuery =
         !q ||
@@ -72,9 +90,14 @@ export default function SearchPage() {
         t.tags.some(
           (tag) => tag.category === "context" && tag.name === contextFilter,
         );
-      return matchesQuery && matchesContext;
+      const matchesTech =
+        !techFilter ||
+        t.tags.some(
+          (tag) => tag.category === "tech" && tag.name === techFilter,
+        );
+      return matchesQuery && matchesContext && matchesTech;
     });
-  }, [tipsQ.data, query, contextFilter]);
+  }, [tipsQ.data, query, contextFilter, techFilter]);
 
   const handleQueryChange = (value: string) => {
     setQuery(value);
@@ -143,43 +166,55 @@ export default function SearchPage() {
             RightSidebar trending "技術タグ" card is `hidden lg:block`
             *and* popularity-limited, so phone/tablet users and anyone
             looking for a less-used tag need this full list as a
-            reachable follow surface. Chip click populates the keyword
-            field (same legacy behaviour as `?tag=<tech>` inbound
-            links), the bell follows/unfollows. */}
+            reachable follow surface. Chip click toggles a strict
+            tag-equality filter (parity with the context chips right
+            above); the bell follows/unfollows. */}
         {techTags.length > 0 && (
           <div className="mb-6">
             <p className="text-xs text-muted-foreground mb-2">
               技術タグで絞り込み
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {techTags.map((tag) => (
-                <div key={tag.id} className="flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => handleQueryChange(tag.name)}
-                    className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
-                  >
-                    <Badge
-                      variant="secondary"
-                      className="hover:bg-primary/10 hover:text-primary cursor-pointer"
+              {techTags.map((tag) => {
+                const active = techFilter === tag.name;
+                return (
+                  <div key={tag.id} className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleTechFilter(tag.name)}
+                      aria-pressed={active}
+                      className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
                     >
-                      {tag.name}
-                    </Badge>
-                  </button>
-                  <TagFollowButton tag={tag} />
-                </div>
-              ))}
+                      <Badge
+                        variant={active ? "default" : "secondary"}
+                        className={
+                          active
+                            ? "bg-primary text-primary-foreground hover:bg-primary/80 cursor-pointer"
+                            : "hover:bg-primary/10 hover:text-primary cursor-pointer"
+                        }
+                      >
+                        {tag.name}
+                      </Badge>
+                    </button>
+                    <TagFollowButton tag={tag} />
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
         {loading && (
           <p className="text-sm text-muted-foreground mb-4">読み込み中…</p>
         )}
-        {(query || contextFilter) && (
+        {(query || contextFilter || techFilter) && (
           <p className="text-sm text-muted-foreground mb-4">
-            {query && `「${query}」`}
-            {query && contextFilter && " × "}
-            {contextFilter && `${contextFilter}`}
+            {[
+              query && `「${query}」`,
+              contextFilter,
+              techFilter,
+            ]
+              .filter(Boolean)
+              .join(" × ")}
             の検索結果: {results.length}件
           </p>
         )}
@@ -189,12 +224,14 @@ export default function SearchPage() {
               <ContentCard data={tip} />
             </div>
           ))}
-          {(query || contextFilter) && results.length === 0 && !loading && (
-            <p className="text-center text-muted-foreground py-12">
-              検索結果が見つかりませんでした
-            </p>
-          )}
-          {!query && !contextFilter && (
+          {(query || contextFilter || techFilter) &&
+            results.length === 0 &&
+            !loading && (
+              <p className="text-center text-muted-foreground py-12">
+                検索結果が見つかりませんでした
+              </p>
+            )}
+          {!query && !contextFilter && !techFilter && (
             <p className="text-center text-muted-foreground py-12">
               キーワードまたはタグを選択してください
             </p>
