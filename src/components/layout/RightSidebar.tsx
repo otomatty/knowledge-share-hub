@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TagFollowButton } from "@/components/shared/TagFollowButton";
 import {
-  useTipsMapped,
+  useRecentTopTips,
   useTrendingTags,
 } from "@/hooks/use-domain-queries";
 import { useTags } from "@/hooks/use-supabase-query";
@@ -15,7 +15,11 @@ import type { Tag } from "@/types";
 
 export function RightSidebar() {
   const { profile } = useAuth();
-  const { data: tips = [], isLoading: tipLoading } = useTipsMapped();
+  // Issue #14: replaced `useTipsMapped().slice(0, 3)` (which fetched the
+  // entire global feed just to pick three rows) with a scoped query that
+  // pulls only tips published in the last 7 days, ranked by reactions.
+  const { data: recentTips = [], isLoading: tipLoading } =
+    useRecentTopTips(7, 3);
   const {
     data: trendingTags = { tech: [], context: [] },
     isLoading: tagLoading,
@@ -29,8 +33,6 @@ export function RightSidebar() {
     if (!followedIds || followedIds.size === 0) return [];
     return (allTags as Tag[]).filter((t) => followedIds.has(t.id));
   }, [allTags, followedIds]);
-
-  const recentTips = useMemo(() => tips.slice(0, 3), [tips]);
 
   const loading = tipLoading || tagLoading;
 
@@ -84,7 +86,7 @@ export function RightSidebar() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-muted-foreground">
-            最近の気づき
+            今週の気づき
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
