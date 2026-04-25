@@ -127,30 +127,27 @@ export function useTipsMapped() {
  * cost grew linearly with the global tip count even though the page only
  * ever rendered one user's tips.
  *
- * `includeAnonymous` defaults to false because the only current caller
- * (public profile) wants to keep anonymous tips unattributed — exposing
- * them on the author's own profile would defeat the anonymity. Owner
- * archive uses `useUserArchive` instead, which intentionally includes
- * drafts + anonymous tips for backup completeness.
+ * Anonymous tips are filtered out unconditionally — the public profile
+ * is the only caller and it must not deanonymise. Owner-side surfaces
+ * that need the full set (drafts + anonymous tips) use `useUserArchive`
+ * instead. (Note: this hook only filters at the application layer.
+ * `tips` RLS still exposes `author_id` on anonymous rows to any
+ * authenticated user via direct PostgREST queries; closing that gap
+ * needs a schema-level change and is out of scope for this PR.)
  */
-export function useTipsByUser(
-  userId: string | undefined,
-  opts?: { includeAnonymous?: boolean },
-) {
-  const includeAnonymous = opts?.includeAnonymous ?? false;
+export function useTipsByUser(userId: string | undefined) {
   return useQuery({
-    queryKey: ["tips", "domain", "by-user", userId, includeAnonymous],
+    queryKey: ["tips", "domain", "by-user", userId],
     enabled: !!userId,
     queryFn: async (): Promise<Tip[]> => {
-      let q = supabase
+      const { data, error } = await supabase
         .from("tips")
         .select(
           `*, author:profiles!tips_author_id_fkey(*), tip_tags(tag:tags(*))`,
         )
         .eq("status", "published")
-        .eq("author_id", userId!);
-      if (!includeAnonymous) q = q.eq("is_anonymous", false);
-      const { data, error } = await q
+        .eq("author_id", userId!)
+        .eq("is_anonymous", false)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false });
       if (error) throw error;
@@ -191,6 +188,15 @@ export function useRecentTopTips(days: number, limit: number) {
         Date.now() - days * 24 * 60 * 60 * 1000,
       ).toISOString();
 
+      // `published_at` is set unconditionally by both write paths
+      // (TipNew.tsx, TipsDialog.tsx) when a tip is published, so the
+      // `.gte` filter doesn't lose any row in practice. The column is
+      // still typed `string | null` because the schema doesn't enforce
+      // NOT NULL via a CHECK; a published tip with NULL `published_at`
+      // would silently drop out here, which is preferred over
+      // surfacing it without a known publish time in a "this week"
+      // ranking. If that invariant ever breaks, fix it at the schema
+      // level rather than papering over it with `.or(is.null)`.
       const { data, error } = await supabase
         .from("tips")
         .select(
@@ -207,26 +213,32 @@ export function useRecentTopTips(days: number, limit: number) {
       const ids = rows.map((r) => r.id);
       const rx = await fetchReactionSummaries("tip", ids);
 
-      const totalRx = (id: string) => {
-        const s = rx[id];
-        if (!s) return 0;
-        return s.same_thought + s.new_view + s.try_it + s.learned;
-      };
-
-      // Sort by reaction total desc, breaking ties by recency (already
-      // the row order, but be explicit) and then `id` for a stable total
-      // order — otherwise two tips with identical reaction count and
-      // identical `published_at` would render in arbitrary order across
-      // refetches.
-      const ranked = [...rows].sort((a, b) => {
-        const d = totalRx(b.id) - totalRx(a.id);
-        if (d !== 0) return d;
-        const t =
-          new Date(b.published_at ?? b.created_at).getTime() -
-          new Date(a.published_at ?? a.created_at).getTime();
-        if (t !== 0) return t;
-        return b.id.localeCompare(a.id);
-      });
+      // Pre-compute the score and timestamp once per row. The naive
+      // version re-parsed `published_at` and re-summed reactions inside
+      // the comparator, paying those costs O(N log N) times for what
+      // are O(1) per-row values. Tie-breaks: reaction total desc,
+      // publish time desc (already the row order, but be explicit),
+      // then `id` for a stable total order — otherwise two tips with
+      // identical scores would shuffle across refetches.
+      const ranked = rows
+        .map((r) => {
+          const s = rx[r.id];
+          return {
+            row: r,
+            score: s
+              ? s.same_thought + s.new_view + s.try_it + s.learned
+              : 0,
+            time: new Date(r.published_at ?? r.created_at).getTime(),
+          };
+        })
+        .sort((a, b) => {
+          const d = b.score - a.score;
+          if (d !== 0) return d;
+          const t = b.time - a.time;
+          if (t !== 0) return t;
+          return b.row.id.localeCompare(a.row.id);
+        })
+        .map((x) => x.row);
       const top = ranked.slice(0, limit);
       const topIds = top.map((r) => r.id);
 
