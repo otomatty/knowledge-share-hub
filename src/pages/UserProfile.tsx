@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -8,7 +7,7 @@ import { ContentCard } from "@/components/shared/ContentCard";
 import { ArchiveSection } from "@/components/archive/ArchiveSection";
 import {
   useProfileByUsername,
-  useTipsMapped,
+  useTipsByUser,
 } from "@/hooks/use-domain-queries";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -102,7 +101,7 @@ export default function UserProfile() {
         {isSelf ? (
           // Radix TabsContent doesn't mount inactive tabs by default, so
           // putting the feed query inside `OwnTipsPane` means an owner
-          // on ?tab=archive never pays for `useTipsMapped` — the archive
+          // on ?tab=archive never pays for `useTipsByUser` — the archive
           // is owner-scoped and stays lightweight.
           <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
             <TabsList>
@@ -138,14 +137,10 @@ function OwnTipsPane({
   userId: string;
   showHeading?: boolean;
 }) {
-  const tipsQ = useTipsMapped();
-  const tips = useMemo(
-    () =>
-      (tipsQ.data ?? []).filter(
-        (t) => t.author.id === userId && !t.is_anonymous,
-      ),
-    [userId, tipsQ.data],
-  );
+  // Issue #14: scope the fetch to this user server-side instead of
+  // pulling the global feed and filtering on the client.
+  const tipsQ = useTipsByUser(userId);
+  const tips = tipsQ.data ?? [];
 
   const heading = showHeading ? (
     <h2 className="text-lg font-semibold mb-3">
