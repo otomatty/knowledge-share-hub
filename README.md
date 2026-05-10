@@ -7,33 +7,39 @@ UI は日本語、バックエンドは Supabase（PostgREST + RLS + pg_cron）�
 ## 主な機能
 
 ### コンテンツ
+
 - **140 字の気づき（Tip）投稿**: ドラフト / 公開ステータス、匿名投稿に対応
 - **追記（Addendum）**: 公開済み Tip に後から短文を追記（こちらも 140 字上限、追記履歴は時系列で保持）
 - **コメント / 返信**: ネスト構造のスレッド、コメントへのリアクション
 
 ### タグ
+
 - **技術タグ（tech）と文脈タグ（context）の二系統**: `tags.category` で区別
 - **プリセットの文脈タグ**: `#今日の学び` `#ハマった` `#逆に気づいた` `#違和感` `#試してみたい` `#振り返り`
 - **タグフォロー**: 「フォロー中」フィードでフォロー対象タグの Tip だけを表示。フォロー関係は本人にしか見えない（フォロワー数は構造的に計上不可）
 
 ### リアクションとアクションループ
+
 - **4 種類のリアクション**: `same_thought` / `new_view` / `try_it` / `learned`
 - **「試してみる」誓約**: `try_it` を押すと `tip_attempts` に pledge が記録される
 - **3 日後の追跡通知**: pg_cron が `dispatch_try_it_followups()` を毎日 02:00 UTC に実行し、未着手の pledge にフォローアップ通知を送る
 - **結果 Tip のリンク化**: 結果として投稿された Tip は元の Tip の系譜として詳細ページに表示
 
 ### 気づきの熟成（Resurfacing）
+
 - **自分の Tip の 1 週間後再読プロンプト**: pg_cron が 02:30 UTC に `dispatch_tip_resurfacings()` を実行。`tip_resurfacings` で重複送信を防止
 - **他ユーザーの過去 Tip のフィード再浮上**: クエリ層で算出（テーブル不要）。「すべて」タブにのみ表示
 - **再読時の追記**: 再読プロンプトから直接 Addendum を追加できる
 
 ### 検索 / 通知 / 個人アーカイブ
+
 - **検索**: キーワード + 文脈タグ + 技術タグの併用フィルタ。URL パラメータ（`?q=` `?tag=`）が真実の情報源
 - **通知**: リアクション、コメント、返信、try_it 系、resurface_self を一覧
 - **個人アーカイブ**: 自分の Tip を Markdown / JSON でエクスポート（サイズ上限あり）
 - **デイリー・リフレクションプロンプト**: 投稿フォームに毎日違う問いかけを表示
 
 ### 管理
+
 - **管理画面 `/admin`**: ユーザー一覧 / タグ一覧
 
 ## 技術スタック
@@ -55,6 +61,7 @@ UI は日本語、バックエンドは Supabase（PostgREST + RLS + pg_cron）�
 ## セットアップ
 
 ### 必要環境
+
 - Node.js 20+ と Bun（推奨）。`npm` でも動きますが、`vercel.json` は `bun install` / `bun run build` を前提にしています。
 - Supabase プロジェクト（リモート、またはローカルの `supabase start`）
 
@@ -114,7 +121,7 @@ Playwright のフィクスチャは `playwright-fixture.ts` / `playwright.config
 
 ## ディレクトリ構成
 
-```
+```text
 src/
 ├── App.tsx                 # ルーティング定義（ProtectedRoute で保護）
 ├── pages/                  # 画面単位（Index / TipDetail / SearchPage / AdminPage 等）
