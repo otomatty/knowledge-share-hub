@@ -6,6 +6,7 @@ import { TiptapEditor } from "@/components/shared/TiptapEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCommentsThread } from "@/hooks/use-domain-queries";
 import { useCreateComment } from "@/hooks/use-supabase-query";
+import { sanitizeCommentHtml } from "@/lib/sanitize";
 import type { Comment } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -51,7 +52,7 @@ function CommentItem({
       </div>
       <div
         className="text-sm leading-relaxed mb-2 prose prose-sm max-w-none"
-        dangerouslySetInnerHTML={{ __html: comment.content }}
+        dangerouslySetInnerHTML={{ __html: sanitizeCommentHtml(comment.content) }}
       />
       <div className="flex items-center gap-2 mb-3">
         <CommentReactions commentId={comment.id} />
@@ -128,7 +129,8 @@ export function CommentSection({ contentType, contentId }: CommentSectionProps) 
   };
 
   const submit = async (html: string, parentId?: string) => {
-    const trimmed = html.replace(/<[^>]*>/g, "").trim();
+    const sanitized = sanitizeCommentHtml(html);
+    const trimmed = sanitized.replace(/<[^>]*>/g, "").trim();
     if (!trimmed || !profile) {
       toast.error("ログインが必要です");
       return;
@@ -136,7 +138,7 @@ export function CommentSection({ contentType, contentId }: CommentSectionProps) 
     try {
       await createComment.mutateAsync({
         author_id: profile.id,
-        content: html,
+        content: sanitized,
         content_type: contentType,
         content_id: contentId,
         parent_id: parentId ?? null,
