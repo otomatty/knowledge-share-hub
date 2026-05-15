@@ -23,7 +23,7 @@ if (!supabaseUrl || !supabasePublishableKey) {
 //   same localStorage key, causing "Multiple GoTrueClient instances detected"
 //   warnings and unstable session state. If you need to hit another schema,
 //   use `supabase.schema("public").from("...")` on this single client instead.
-export const supabase = createClient<Database>(
+export const supabase = createClient<Database, "knowledge_share_hub">(
   supabaseUrl,
   supabasePublishableKey,
   {
