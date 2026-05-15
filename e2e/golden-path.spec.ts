@@ -68,9 +68,11 @@ test("authenticated user can post a tip and react on the detail page", async ({
     .fill("E2E テスト経由で投稿された気づき");
   await page.getByRole("button", { name: "投稿する" }).click();
 
-  // After insert, TipNew navigates to /tips/:id — wait for the detail
-  // route to settle before asserting.
-  await page.waitForURL(/\/tips\//);
+  // TipNew navigates to `/tips` (the list page) when no `?source=` param
+  // is present — anchor on the trailing-/tips path so the regex doesn't
+  // also match the starting `/tips/new` and silently no-op the assertion.
+  await page.waitForURL(/\/tips$/);
+  await expect(page.getByText("気づきを投稿しました")).toBeVisible();
 });
 
 test("search page renders with a search input", async ({ page }) => {

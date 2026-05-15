@@ -115,9 +115,10 @@ describe("useMyTagFollows", () => {
   it("is disabled when userId is undefined (no fetch)", async () => {
     const { useMyTagFollows } = await import("./use-tag-follows");
     const { wrapper } = createQueryWrapper();
-    renderHook(() => useMyTagFollows(undefined), { wrapper });
-    // Give the queryClient a tick to run any enabled queries.
-    await new Promise((r) => setTimeout(r, 10));
+    const { result } = renderHook(() => useMyTagFollows(undefined), {
+      wrapper,
+    });
+    expect(result.current.fetchStatus).toBe("idle");
     expect(supabase.from).not.toHaveBeenCalled();
   });
 });

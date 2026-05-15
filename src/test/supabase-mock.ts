@@ -41,6 +41,10 @@ export interface ChainableBuilder<T = unknown> {
       | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ) => Promise<TResult1 | TResult2>;
+  catch: <TResult = never>(
+    onrejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null,
+  ) => Promise<SupabaseQueryResponse<T> | TResult>;
+  finally: (onfinally?: (() => void) | null) => Promise<SupabaseQueryResponse<T>>;
 }
 
 export function chainable<T = unknown>(
@@ -74,6 +78,12 @@ export function chainable<T = unknown>(
   builder.maybeSingle = vi.fn(() => Promise.resolve(response));
   builder.then = (onFulfilled, onRejected) =>
     Promise.resolve(response).then(onFulfilled, onRejected);
+  // `.catch()` / `.finally()` on a Supabase query chain are valid
+  // PromiseLike entrypoints; mirroring them keeps the mock compatible
+  // with code that doesn't go through `await`.
+  builder.catch = (onRejected) => Promise.resolve(response).catch(onRejected);
+  builder.finally = (onFinally) =>
+    Promise.resolve(response).finally(onFinally);
   return builder;
 }
 

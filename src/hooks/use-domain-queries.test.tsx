@@ -84,11 +84,11 @@ describe("useUserReactionTypesOnContent", () => {
       "./use-domain-queries"
     );
     const { wrapper } = createQueryWrapper();
-    renderHook(
+    const { result } = renderHook(
       () => useUserReactionTypesOnContent(undefined, "tip", "tip-1"),
       { wrapper },
     );
-    await new Promise((r) => setTimeout(r, 10));
+    expect(result.current.fetchStatus).toBe("idle");
     expect(supabase.from).not.toHaveBeenCalled();
   });
 });
@@ -171,8 +171,10 @@ describe("useTipByIdMapped", () => {
   it("is disabled when id is undefined", async () => {
     const { useTipByIdMapped } = await import("./use-domain-queries");
     const { wrapper } = createQueryWrapper();
-    renderHook(() => useTipByIdMapped(undefined), { wrapper });
-    await new Promise((r) => setTimeout(r, 10));
+    const { result } = renderHook(() => useTipByIdMapped(undefined), {
+      wrapper,
+    });
+    expect(result.current.fetchStatus).toBe("idle");
     expect(supabase.from).not.toHaveBeenCalled();
   });
 });
