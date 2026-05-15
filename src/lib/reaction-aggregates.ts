@@ -1,6 +1,9 @@
 import { supabase } from "@/lib/supabase";
 import { fetchAllPagesChunked } from "@/lib/supabase-pagination";
+import type { Database } from "@/integrations/supabase/types";
 import type { ReactionSummary } from "@/types";
+
+type Tables = Database["knowledge_share_hub"]["Tables"];
 
 export const emptyReactionSummary = (): ReactionSummary => ({
   same_thought: 0,
@@ -10,7 +13,7 @@ export const emptyReactionSummary = (): ReactionSummary => ({
 });
 
 export async function fetchReactionSummaries(
-  contentType: "tip" | "comment",
+  contentType: Tables["reactions"]["Row"]["content_type"],
   contentIds: string[],
 ): Promise<Record<string, ReactionSummary>> {
   const out: Record<string, ReactionSummary> = {};

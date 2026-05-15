@@ -19,13 +19,16 @@ import type {
   Tip,
   User,
 } from "@/types";
+import type { Database } from "@/integrations/supabase/types";
 import { profileToUser } from "@/lib/profile-mapper";
+
+type Tables = Database["knowledge_share_hub"]["Tables"];
 
 const emptyRx = emptyReactionSummary;
 
 export function useUserReactionTypesOnContent(
   userId: string | undefined,
-  contentType: "tip" | "comment",
+  contentType: Tables["reactions"]["Row"]["content_type"],
   contentId: string | undefined,
 ) {
   return useQuery({
