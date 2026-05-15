@@ -49,7 +49,26 @@ const SEED_TIP = {
 };
 
 let nextTipId = 1;
-const createdTips: typeof SEED_TIP[] = [];
+const createdTips: (typeof SEED_TIP)[] = [];
+
+/**
+ * Reset the module-level `createdTips` / `nextTipId` accumulators.
+ *
+ * MSW handlers run in the *browser* (dev server) context, while
+ * Playwright specs run in a separate Node process — so this can't be
+ * invoked from a spec to reset cross-test state there. It's still
+ * useful for vitest suites that import the handlers directly, and for
+ * any future in-page reset wiring.
+ */
+export function resetMockState() {
+  nextTipId = 1;
+  createdTips.length = 0;
+}
+
+/** Allowed fields the `tips` INSERT body forwards from the client. */
+type TipCreatePayload = Partial<
+  Pick<typeof SEED_TIP, "content" | "is_anonymous" | "status">
+>;
 
 function fakeSession() {
   return {
@@ -85,19 +104,23 @@ export const handlers = [
     HttpResponse.json([SEED_TIP, ...createdTips]),
   ),
   http.post(`${SUPABASE}/rest/v1/tips`, async ({ request }) => {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = (await request.json()) as TipCreatePayload;
     const id = `tip-msw-${nextTipId++}`;
-    const created = {
+    // Pick only the validated fields off `body`; everything else (id,
+    // author, joins, timestamps) is server-owned so we generate it here.
+    const created: typeof SEED_TIP = {
       ...SEED_TIP,
-      ...body,
       id,
+      content: body.content ?? SEED_TIP.content,
+      is_anonymous: body.is_anonymous ?? false,
+      status: body.status ?? "published",
       author: TEST_PROFILE,
       tip_tags: [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       published_at: new Date().toISOString(),
     };
-    createdTips.push(created as typeof SEED_TIP);
+    createdTips.push(created);
     return HttpResponse.json([created], { status: 201 });
   }),
 

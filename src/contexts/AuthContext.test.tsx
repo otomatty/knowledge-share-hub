@@ -42,10 +42,15 @@ describe("useAuth", () => {
     const { useAuth } = await import("./AuthContext");
     // Suppress React's expected console.error for the throw.
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => renderHook(() => useAuth())).toThrow(
-      /useAuth must be used within an AuthProvider/,
-    );
-    errSpy.mockRestore();
+    try {
+      expect(() => renderHook(() => useAuth())).toThrow(
+        /useAuth must be used within an AuthProvider/,
+      );
+    } finally {
+      // Restore even if the assertion fails, so a regression here doesn't
+      // silently mute console.error for the rest of the suite.
+      errSpy.mockRestore();
+    }
   });
 });
 

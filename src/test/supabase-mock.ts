@@ -13,8 +13,11 @@ import { vi } from "vitest";
  *   - assert which methods were called via the per-method `vi.fn` spies
  *     (`builder.eq.mock.calls`, `builder.insert.mock.calls`, ...).
  */
+// `data` is optional in the "no error" branch so the chainable's default
+// `{ data: null, error: null }` response — used whenever a test doesn't
+// configure a specific table response — type-checks without a cast.
 export type SupabaseQueryResponse<T = unknown> =
-  | { data: T; error: null }
+  | { data: T | null; error: null }
   | { data: null; error: { message: string } };
 
 export interface ChainableBuilder<T = unknown> {
@@ -48,8 +51,7 @@ export interface ChainableBuilder<T = unknown> {
 }
 
 export function chainable<T = unknown>(
-  response: SupabaseQueryResponse<T> = { data: null, error: null } as
-    SupabaseQueryResponse<T>,
+  response: SupabaseQueryResponse<T> = { data: null, error: null },
 ): ChainableBuilder<T> {
   const builder = {} as ChainableBuilder<T>;
 

@@ -196,9 +196,13 @@ describe("mapCommentRow", () => {
     expect(comment.parent_id).toBe("comment-1");
   });
 
-  it("hard-codes content_type to 'tip'", () => {
+  it("hard-codes content_type to 'tip' regardless of the row's value", () => {
+    // Feed a non-"tip" value (cast through unknown because the column
+    // type is the literal "tip"). The mapper hard-codes the output to
+    // "tip"; the test would have silently passed if we'd left the input
+    // at "tip" since identity == hard-code.
     const comment = mapCommentRow(
-      mkCommentRow({ content_type: "tip" }),
+      mkCommentRow({ content_type: "post" as unknown as "tip" }),
       mkReactions(),
       undefined,
     );

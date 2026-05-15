@@ -1,4 +1,4 @@
-import { test, expect } from "../playwright-fixture";
+import { test, expect, type Page } from "../playwright-fixture";
 
 /**
  * Golden-path smoke test (issue #36, recommended action 4).
@@ -8,6 +8,12 @@ import { test, expect } from "../playwright-fixture";
  * The dev server is launched by `playwright.config.ts`'s `webServer`
  * with `VITE_E2E=true`, which is the only knob that asks `src/main.tsx`
  * to start the MSW worker.
+ *
+ * Note on isolation: MSW handlers run inside the dev server's browser
+ * context, while this spec runs in a separate Node process. The two
+ * don't share memory, so `resetMockState()` can't be called from here
+ * — the suite is intentionally written to be order-independent so the
+ * persistent `createdTips` accumulator doesn't matter.
  */
 
 const FAKE_USER = {
@@ -31,6 +37,15 @@ const FAKE_SESSION = {
   user: { ...FAKE_USER, aud: "authenticated", role: "authenticated" },
 };
 
+async function seedAuthSession(page: Page) {
+  await page.addInitScript(
+    ({ key, session }) => {
+      window.localStorage.setItem(key, JSON.stringify(session));
+    },
+    { key: STORAGE_KEY, session: FAKE_SESSION },
+  );
+}
+
 test("login screen accepts an email and shows the magic-link confirmation", async ({
   page,
 }) => {
@@ -47,25 +62,17 @@ test("login screen accepts an email and shows the magic-link confirmation", asyn
   await expect(page.getByText(FAKE_USER.email)).toBeVisible();
 });
 
-test("authenticated user can post a tip and react on the detail page", async ({
-  page,
-}) => {
-  // Pre-seed the supabase session so ProtectedRoute lets us through
-  // without going through the magic-link UI flow.
-  await page.addInitScript(
-    ({ key, session }) => {
-      window.localStorage.setItem(key, JSON.stringify(session));
-    },
-    { key: STORAGE_KEY, session: FAKE_SESSION },
-  );
+test("authenticated user can post a tip", async ({ page }) => {
+  await seedAuthSession(page);
 
   await page.goto("/tips/new");
   await expect(page.getByRole("button", { name: "投稿する" })).toBeVisible();
 
-  await page
-    .getByRole("textbox")
-    .first()
-    .fill("E2E テスト経由で投稿された気づき");
+  const body = "E2E テスト経由で投稿された気づき";
+  // TipNew has exactly one <textarea> for the body; tag inputs are
+  // <input>. The element-level selector is more specific than
+  // getByRole("textbox").first(), which also matches the tag input.
+  await page.locator("textarea").fill(body);
   await page.getByRole("button", { name: "投稿する" }).click();
 
   // TipNew navigates to `/tips` (the list page) when no `?source=` param
@@ -73,15 +80,13 @@ test("authenticated user can post a tip and react on the detail page", async ({
   // also match the starting `/tips/new` and silently no-op the assertion.
   await page.waitForURL(/\/tips$/);
   await expect(page.getByText("気づきを投稿しました")).toBeVisible();
+  // MSW's POST /rest/v1/tips persists the new tip, and GET returns
+  // [seed, ...created], so the list page should render our body.
+  await expect(page.getByText(body)).toBeVisible();
 });
 
 test("search page renders with a search input", async ({ page }) => {
-  await page.addInitScript(
-    ({ key, session }) => {
-      window.localStorage.setItem(key, JSON.stringify(session));
-    },
-    { key: STORAGE_KEY, session: FAKE_SESSION },
-  );
+  await seedAuthSession(page);
 
   await page.goto("/search");
   await expect(
