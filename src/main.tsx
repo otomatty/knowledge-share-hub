@@ -12,8 +12,21 @@ const queryClient = new QueryClient({
   },
 });
 
-createRoot(document.getElementById("root")!).render(
-  <QueryClientProvider client={queryClient}>
-    <App />
-  </QueryClientProvider>,
-);
+function render() {
+  createRoot(document.getElementById("root")!).render(
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>,
+  );
+}
+
+// MSW for Playwright E2E. Tree-shaken out of production: Vite statically
+// inlines `import.meta.env.VITE_E2E`, so the dynamic `import("./mocks/...")`
+// only ships when the dev server is launched with `VITE_E2E=true`.
+if (import.meta.env.VITE_E2E === "true") {
+  import("./mocks/browser").then(({ worker }) =>
+    worker.start({ onUnhandledRequest: "bypass" }).then(render),
+  );
+} else {
+  render();
+}
