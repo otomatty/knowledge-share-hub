@@ -40,6 +40,7 @@ export type Database = {
           updated_at?: string;
           employee_id?: string | null;
         };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
@@ -88,6 +89,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       tags: {
         Row: {
@@ -108,6 +110,7 @@ export type Database = {
           category?: "tech" | "context";
           created_at?: string;
         };
+        Relationships: [];
       };
       tips: {
         Row: {
@@ -137,6 +140,15 @@ export type Database = {
           published_at?: string | null;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "tips_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tip_tags: {
         Row: {
@@ -151,6 +163,22 @@ export type Database = {
           tip_id?: string;
           tag_id?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "tip_tags_tip_id_fkey";
+            columns: ["tip_id"];
+            isOneToOne: false;
+            referencedRelation: "tips";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tip_tags_tag_id_fkey";
+            columns: ["tag_id"];
+            isOneToOne: false;
+            referencedRelation: "tags";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       comments: {
         Row: {
@@ -180,6 +208,22 @@ export type Database = {
           parent_id?: string | null;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "comments_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comments_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "comments";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       reactions: {
         Row: {
@@ -206,6 +250,15 @@ export type Database = {
           reaction_type?: "same_thought" | "new_view" | "try_it" | "learned";
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "reactions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       notifications: {
         Row: {
@@ -261,6 +314,22 @@ export type Database = {
           message?: string;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tip_attempts: {
         Row: {
@@ -290,6 +359,29 @@ export type Database = {
           completed_at?: string | null;
           follow_up_notified_at?: string | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: "tip_attempts_source_tip_id_fkey";
+            columns: ["source_tip_id"];
+            isOneToOne: false;
+            referencedRelation: "tips";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tip_attempts_result_tip_id_fkey";
+            columns: ["result_tip_id"];
+            isOneToOne: false;
+            referencedRelation: "tips";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tip_attempts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tip_resurfacings: {
         Row: {
@@ -318,6 +410,22 @@ export type Database = {
           surfaced_at?: string;
           acknowledged_at?: string | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: "tip_resurfacings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tip_resurfacings_tip_id_fkey";
+            columns: ["tip_id"];
+            isOneToOne: false;
+            referencedRelation: "tips";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tip_addendums: {
         Row: {
@@ -345,6 +453,22 @@ export type Database = {
           content?: string;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "tip_addendums_tip_id_fkey";
+            columns: ["tip_id"];
+            isOneToOne: false;
+            referencedRelation: "tips";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tip_addendums_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tag_follows: {
         Row: {
@@ -364,6 +488,22 @@ export type Database = {
           tag_id?: string;
           followed_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "tag_follows_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tag_follows_tag_id_fkey";
+            columns: ["tag_id"];
+            isOneToOne: false;
+            referencedRelation: "tags";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {
@@ -382,6 +522,7 @@ export type Database = {
           completed_at: string | null;
           follow_up_notified_at: string | null;
         };
+        Relationships: [];
       };
     };
     Functions: Record<string, never>;

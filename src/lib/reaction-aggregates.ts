@@ -10,7 +10,7 @@ export const emptyReactionSummary = (): ReactionSummary => ({
 });
 
 export async function fetchReactionSummaries(
-  contentType: string,
+  contentType: "tip" | "comment",
   contentIds: string[],
 ): Promise<Record<string, ReactionSummary>> {
   const out: Record<string, ReactionSummary> = {};

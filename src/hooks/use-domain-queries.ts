@@ -25,7 +25,7 @@ const emptyRx = emptyReactionSummary;
 
 export function useUserReactionTypesOnContent(
   userId: string | undefined,
-  contentType: string,
+  contentType: "tip" | "comment",
   contentId: string | undefined,
 ) {
   return useQuery({

@@ -22,7 +22,7 @@ export function useTips() {
   });
 }
 
-export function useComments(contentType: string, contentId: string) {
+export function useComments(contentType: "tip", contentId: string) {
   return useQuery({
     queryKey: ["comments", contentType, contentId],
     queryFn: async () => {
@@ -40,7 +40,10 @@ export function useComments(contentType: string, contentId: string) {
   });
 }
 
-export function useReactionCounts(contentType: string, contentId: string) {
+export function useReactionCounts(
+  contentType: "tip" | "comment",
+  contentId: string,
+) {
   return useQuery({
     queryKey: ["reactions", contentType, contentId],
     queryFn: async () => {
@@ -73,7 +76,7 @@ export function useToggleReaction() {
       reactionType,
     }: {
       userId: string;
-      contentType: string;
+      contentType: "tip" | "comment";
       contentId: string;
       reactionType: Tables["reactions"]["Row"]["reaction_type"];
     }) => {
