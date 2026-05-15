@@ -25,24 +25,27 @@ const ALLOWED_TAGS = [
 
 const ALLOWED_ATTR = ["href", "src", "alt", "class"];
 
-let hookRegistered = false;
-
-function ensureHook(): void {
-  if (hookRegistered) return;
-  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-    if (node.tagName === "A") {
-      node.setAttribute("rel", "noopener noreferrer");
-      node.setAttribute("target", "_blank");
-    }
-  });
-  hookRegistered = true;
+function hardenAnchors(html: string): string {
+  if (!html.includes("<a")) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const a of Array.from(doc.body.querySelectorAll("a"))) {
+    a.setAttribute("rel", "noopener noreferrer");
+    a.setAttribute("target", "_blank");
+  }
+  return doc.body.innerHTML;
 }
 
 export function sanitizeCommentHtml(html: string): string {
-  ensureHook();
-  return DOMPurify.sanitize(html, {
+  const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOW_DATA_ATTR: false,
   });
+  return hardenAnchors(sanitized);
+}
+
+export function hasRenderableSanitizedHtml(sanitized: string): boolean {
+  const doc = new DOMParser().parseFromString(sanitized, "text/html");
+  if ((doc.body.textContent ?? "").trim().length > 0) return true;
+  return doc.body.querySelector("img") !== null;
 }

@@ -6,7 +6,7 @@ import { TiptapEditor } from "@/components/shared/TiptapEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCommentsThread } from "@/hooks/use-domain-queries";
 import { useCreateComment } from "@/hooks/use-supabase-query";
-import { sanitizeCommentHtml } from "@/lib/sanitize";
+import { sanitizeCommentHtml, hasRenderableSanitizedHtml } from "@/lib/sanitize";
 import type { Comment } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -129,10 +129,13 @@ export function CommentSection({ contentType, contentId }: CommentSectionProps) 
   };
 
   const submit = async (html: string, parentId?: string) => {
-    const sanitized = sanitizeCommentHtml(html);
-    const trimmed = sanitized.replace(/<[^>]*>/g, "").trim();
-    if (!trimmed || !profile) {
+    if (!profile) {
       toast.error("ログインが必要です");
+      return;
+    }
+    const sanitized = sanitizeCommentHtml(html);
+    if (!hasRenderableSanitizedHtml(sanitized)) {
+      toast.error("コメント内容を入力してください");
       return;
     }
     try {

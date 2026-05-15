@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeCommentHtml } from "./sanitize";
+import { sanitizeCommentHtml, hasRenderableSanitizedHtml } from "./sanitize";
 
 describe("sanitizeCommentHtml", () => {
   it("strips <script> tags entirely", () => {
@@ -48,5 +48,30 @@ describe("sanitizeCommentHtml", () => {
     );
     expect(out).toContain('src="https://example.com/x.png"');
     expect(out).toContain('alt="x"');
+  });
+});
+
+describe("hasRenderableSanitizedHtml", () => {
+  it("returns false for empty string", () => {
+    expect(hasRenderableSanitizedHtml("")).toBe(false);
+  });
+
+  it("returns false for tags with no content", () => {
+    expect(hasRenderableSanitizedHtml("<p></p>")).toBe(false);
+  });
+
+  it("returns false for whitespace and &nbsp; only", () => {
+    expect(hasRenderableSanitizedHtml("<p>   </p>")).toBe(false);
+    expect(hasRenderableSanitizedHtml("<p>&nbsp;</p>")).toBe(false);
+  });
+
+  it("returns true for text content", () => {
+    expect(hasRenderableSanitizedHtml("<p>hello</p>")).toBe(true);
+  });
+
+  it("returns true for image-only comments", () => {
+    expect(
+      hasRenderableSanitizedHtml('<p><img src="https://example.com/x.png" alt=""></p>'),
+    ).toBe(true);
   });
 });
