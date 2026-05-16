@@ -365,4 +365,59 @@ describe("AuthProvider — profile fetch race conditions (issue #38)", () => {
 
     expect(result.current.profile).toBeNull();
   });
+
+  it("does not drop concurrent profile fetches for the same user (last-resolved wins)", async () => {
+    // Pins the new contract: same-userId concurrent fetches BOTH write
+    // through and the last-resolved response wins. If a future refactor
+    // reverts to a per-call generation that drops earlier requests, this
+    // test fails.
+    supabase.auth.getSession.mockResolvedValueOnce({
+      data: {
+        session: {
+          user: { id: "user-1", email: "tanaka@example.com" },
+          access_token: "x",
+        },
+      },
+      error: null,
+    });
+    const cbRef = captureAuthCallback();
+
+    const slow = pendingProfileChainable<ReturnType<typeof profileRow>>();
+    supabase.from
+      .mockImplementationOnce(() => slow.chain)
+      .mockImplementationOnce(() =>
+        chainable({
+          data: profileRow({ id: "user-1", username: "second" }),
+          error: null,
+        }),
+      );
+
+    const { result } = await renderAuth();
+    await waitFor(() => expect(cbRef.current).toBeDefined());
+
+    // Same user signs in again (e.g. TOKEN_REFRESHED / duplicate
+    // INITIAL_SESSION) — kicks off a second, faster fetch for the same id.
+    await act(async () => {
+      cbRef.current!("SIGNED_IN", {
+        user: { id: "user-1", email: "tanaka@example.com" },
+        access_token: "x2",
+      });
+    });
+    await waitFor(() =>
+      expect(result.current.profile?.username).toBe("second"),
+    );
+
+    // The slow first fetch lands later with a different payload. Same
+    // userId ⇒ must still write through; last-resolved wins.
+    await act(async () => {
+      slow.resolve({
+        data: profileRow({ id: "user-1", username: "first" }),
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(result.current.profile?.id).toBe("user-1");
+    expect(result.current.profile?.username).toBe("first");
+  });
 });
