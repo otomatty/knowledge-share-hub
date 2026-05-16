@@ -20,11 +20,14 @@
 --   4. 通知の文脈 (content_id 等) と紐づけて投稿者候補を絞り込む
 --
 -- 修正方針 (issue #37 案 A): 受信者は `is_read` のみ更新可能とし、
--- それ以外の列 (`id`, `user_id`, `actor_id`, `content_id`, `content_type`,
--- `type`, `message`, `created_at`) の改変を BEFORE UPDATE トリガで拒否する。
+-- それ以外の列の改変を BEFORE UPDATE トリガで拒否する。判定は拒否列を
+-- 列挙する形ではなく、`to_jsonb(new) - 'is_read'` と
+-- `to_jsonb(old) - 'is_read'` を比較する「is_read 以外に差分があれば拒否」
+-- 形式 (default deny) とする。これにより将来 notifications に列が追加された
+-- 場合も、本トリガを更新し忘れて再び書き換え可能になることを防ぐ。
 -- RLS ポリシーはそのまま残し、列レベルでの defense-in-depth とする。
--- `message` を保護することで受信通知文面の改ざんによる UI なりすましを、
--- `created_at` を保護することで通知履歴の順序改ざんを防ぐ。
+-- `message` の改ざんによる UI なりすましや、`created_at` の改ざんによる
+-- 通知履歴の順序操作もこの方針で同時に塞ぐ。
 --
 -- 影響範囲:
 --   * クライアントの `useMarkAllNotificationsRead`
@@ -36,7 +39,8 @@
 -- 受け入れ条件 (issue #37):
 --   * 受信者が actor_id / user_id / content_id / type を UPDATE できない
 --   * is_read の更新は引き続き可能
---   * (追加) content_type も保護対象
+--   * (拡張) is_read 以外の任意の列 (content_type / message / created_at /
+--     将来追加される列を含む) を UPDATE できない
 
 set search_path = public, knowledge_share_hub;
 
@@ -47,14 +51,10 @@ security definer
 set search_path = ''
 as $$
 begin
-  if new.id is distinct from old.id
-     or new.user_id is distinct from old.user_id
-     or new.actor_id is distinct from old.actor_id
-     or new.content_id is distinct from old.content_id
-     or new.content_type is distinct from old.content_type
-     or new.type is distinct from old.type
-     or new.message is distinct from old.message
-     or new.created_at is distinct from old.created_at then
+  -- Default deny: is_read を取り除いた行表現が変化していれば拒否する。
+  -- これで将来列が追加されても allowlist (= is_read) を更新しない限り
+  -- ユーザー経由の UPDATE は通らない。
+  if (to_jsonb(new) - 'is_read') is distinct from (to_jsonb(old) - 'is_read') then
     raise exception 'notifications: only is_read is updatable'
       using errcode = 'check_violation';
   end if;
