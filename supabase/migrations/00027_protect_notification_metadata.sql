@@ -20,9 +20,11 @@
 --   4. 通知の文脈 (content_id 等) と紐づけて投稿者候補を絞り込む
 --
 -- 修正方針 (issue #37 案 A): 受信者は `is_read` のみ更新可能とし、
--- メタデータ列 (`id`, `user_id`, `actor_id`, `content_id`, `content_type`,
--- `type`) の改変を BEFORE UPDATE トリガで拒否する。RLS ポリシーは
--- そのまま残し、列レベルでの defense-in-depth とする。
+-- それ以外の列 (`id`, `user_id`, `actor_id`, `content_id`, `content_type`,
+-- `type`, `message`, `created_at`) の改変を BEFORE UPDATE トリガで拒否する。
+-- RLS ポリシーはそのまま残し、列レベルでの defense-in-depth とする。
+-- `message` を保護することで受信通知文面の改ざんによる UI なりすましを、
+-- `created_at` を保護することで通知履歴の順序改ざんを防ぐ。
 --
 -- 影響範囲:
 --   * クライアントの `useMarkAllNotificationsRead`
@@ -50,8 +52,10 @@ begin
      or new.actor_id is distinct from old.actor_id
      or new.content_id is distinct from old.content_id
      or new.content_type is distinct from old.content_type
-     or new.type is distinct from old.type then
-    raise exception 'notifications: metadata columns are immutable'
+     or new.type is distinct from old.type
+     or new.message is distinct from old.message
+     or new.created_at is distinct from old.created_at then
+    raise exception 'notifications: only is_read is updatable'
       using errcode = 'check_violation';
   end if;
   return new;
