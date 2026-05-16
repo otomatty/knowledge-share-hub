@@ -57,7 +57,8 @@ describe("useToggleReaction", () => {
       content_id: "tip-1",
       reaction_type: "same_thought",
     });
-    // Tip-domain cache is invalidated for tip reactions.
+    // Issue #40: only the specific tip's domain cache is invalidated
+    // (not the whole feed) when a reaction toggles.
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).toContainEqual(["reactions", "tip", "tip-1"]);
     expect(keys).toContainEqual([
@@ -66,7 +67,8 @@ describe("useToggleReaction", () => {
       "tip",
       "tip-1",
     ]);
-    expect(keys).toContainEqual(["tips", "domain"]);
+    expect(keys).toContainEqual(["tips", "domain", "tip-1"]);
+    expect(keys).not.toContainEqual(["tips", "domain"]);
   });
 
   it("deletes the reaction when one already exists", async () => {
@@ -141,6 +143,7 @@ describe("useToggleReaction", () => {
 
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).not.toContainEqual(["tips", "domain"]);
+    expect(keys).not.toContainEqual(["tips", "domain", "c-1"]);
   });
 
   it("throws when the insert errors out", async () => {

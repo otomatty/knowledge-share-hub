@@ -120,19 +120,19 @@ export function useToggleReaction() {
           variables.contentId,
         ],
       });
-      // The tip-domain hooks (`useTipsMapped`, `useTipsByUser`,
-      // `useRecentTopTips`, `useTipsFollowedByTags`, `useTipByIdMapped`)
-      // all embed per-tip reaction summaries via `fetchReactionSummaries`,
-      // so toggling a reaction on a tip leaves their cached payload
-      // out of date. With the project's 5-minute `staleTime`
-      // (src/main.tsx) the ContentCard counts — and, more visibly, the
-      // sidebar ranking from `useRecentTopTips` (issue #14, PR #31
-      // codex review) — would otherwise stay stale until a focus or
-      // remount triggers a refetch. Comment reactions don't feed any
-      // tip-domain cache, so gate on `contentType === "tip"`.
+      // Issue #40: narrow the tip-domain invalidation to the affected
+      // tip only. The previous blanket `["tips", "domain"]` invalidate
+      // refetched every feed (`useTipsMapped`, `useTipsByUser`,
+      // `useRecentTopTips`, `useTipsFollowedByTags`) on every reaction
+      // tap — a multi-hundred-row query storm on a fast tapper. Now
+      // only `useTipByIdMapped` (which keys on tipId) re-runs; feeds
+      // and the sidebar ranking pick up the new count on their next
+      // natural refetch (focus / 5-min staleTime). Acceptable
+      // trade-off: list counts can briefly trail until the next
+      // refresh, but they are still authoritative on hard reload.
       if (variables.contentType === "tip") {
         queryClient.invalidateQueries({
-          queryKey: ["tips", "domain"],
+          queryKey: ["tips", "domain", variables.contentId],
         });
       }
       // A try_it reaction on a tip creates (or leaves untouched) a
