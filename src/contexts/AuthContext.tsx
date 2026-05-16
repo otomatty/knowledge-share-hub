@@ -59,6 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       if (s?.user) {
         fetchProfile(s.user.id);
+      } else {
+        // Same race guard as the onAuthStateChange path: if getSession lands
+        // last with no session, invalidate any in-flight fetch so the prior
+        // session's profile can't materialize against a null user.
+        profileFetchGenerationRef.current++;
+        setProfile(null);
       }
       setLoading(false);
     });

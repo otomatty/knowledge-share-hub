@@ -282,6 +282,60 @@ describe("AuthProvider — profile fetch race conditions (issue #38)", () => {
     expect(result.current.profile?.username).toBe("yamada");
   });
 
+  it("discards an onAuthStateChange-driven fetch when getSession lands last with no session", async () => {
+    // onAuthStateChange fires synchronously when the listener registers (the
+    // initial INITIAL_SESSION event). We make getSession resolve *after* that
+    // — and with no session — to model the race gemini-code-assist flagged:
+    // the in-flight fetchProfile from onAuthStateChange must not paint the
+    // old user's profile onto a now-signed-out state.
+    let resolveGetSession!: (value: {
+      data: { session: unknown };
+      error: null;
+    }) => void;
+    supabase.auth.getSession.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveGetSession = resolve;
+      }),
+    );
+
+    const cbRef = captureAuthCallback();
+    const slow = pendingProfileChainable<ReturnType<typeof profileRow>>();
+    supabase.from.mockImplementationOnce(() => slow.chain);
+
+    const { result } = await renderAuth({ settle: false });
+    await waitFor(() => expect(cbRef.current).toBeDefined());
+
+    // Step 1: onAuthStateChange fires SIGNED_IN with user-1 — fetchProfile
+    // starts but its response is still pending.
+    await act(async () => {
+      cbRef.current!("SIGNED_IN", {
+        user: { id: "user-1", email: "tanaka@example.com" },
+        access_token: "x",
+      });
+    });
+
+    // Step 2: getSession finally resolves with no session.
+    await act(async () => {
+      resolveGetSession({ data: { session: null }, error: null });
+      await Promise.resolve();
+    });
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.profile).toBeNull();
+
+    // Step 3: the user-1 fetch finally lands — must not resurrect profile.
+    await act(async () => {
+      slow.resolve({
+        data: profileRow({ id: "user-1", username: "tanaka" }),
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.profile).toBeNull();
+  });
+
   it("keeps profile null after sign-out even if a prior fetch resolves later", async () => {
     supabase.auth.getSession.mockResolvedValueOnce({
       data: {
