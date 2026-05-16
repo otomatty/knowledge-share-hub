@@ -65,36 +65,47 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
       return;
     }
 
+    // Issue #45: surface tag failures instead of swallowing them, and
+    // run tech-tag inserts as awaited Promise.allSettled rather than
+    // dispatching un-awaited inserts inside a for loop (which leaves
+    // partial state on the first failure with no signal to the user).
     if (contextTag) {
       const { error: ctxErr } = await supabase.from("tip_tags").insert({
         tip_id: tip.id,
         tag_id: contextTag.id,
       });
       if (ctxErr) {
-        console.error("Failed to insert context tag:", ctxErr);
+        toast.error("気づきの種類の保存に失敗しました");
       }
     }
 
-    for (const name of selectedTags) {
-      let tagId = dbTags.find(
-        (t) =>
-          t.category === "tech" &&
-          t.name.toLowerCase() === name.toLowerCase(),
-      )?.id;
-      if (!tagId) {
-        const { data: created } = await supabase
-          .from("tags")
-          .insert({ name, category: "tech" })
-          .select()
-          .single();
-        tagId = created?.id;
-      }
-      if (tagId) {
-        await supabase.from("tip_tags").insert({
+    const techTagResults = await Promise.allSettled(
+      selectedTags.map(async (name) => {
+        let tagId = dbTags.find(
+          (t) =>
+            t.category === "tech" &&
+            t.name.toLowerCase() === name.toLowerCase(),
+        )?.id;
+        if (!tagId) {
+          const { data: created, error: createErr } = await supabase
+            .from("tags")
+            .insert({ name, category: "tech" })
+            .select()
+            .single();
+          if (createErr) throw createErr;
+          tagId = created?.id;
+        }
+        if (!tagId) throw new Error(`Tag id missing for ${name}`);
+        const { error: linkErr } = await supabase.from("tip_tags").insert({
           tip_id: tip.id,
           tag_id: tagId,
         });
-      }
+        if (linkErr) throw linkErr;
+      }),
+    );
+    const failedTags = techTagResults.filter((r) => r.status === "rejected");
+    if (failedTags.length > 0) {
+      toast.error(`${failedTags.length}件のタグ保存に失敗しました`);
     }
 
     queryClient.invalidateQueries({ queryKey: ["tips"] });
