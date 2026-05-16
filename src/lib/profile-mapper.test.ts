@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { profileToUser } from "./profile-mapper";
+import { profileToUser, DISPLAY_NAME_FALLBACK } from "./profile-mapper";
 import type { Database } from "@/integrations/supabase/types";
 
 type ProfileRow = Database["knowledge_share_hub"]["Tables"]["profiles"]["Row"];
@@ -60,5 +60,17 @@ describe("profileToUser", () => {
     const user = profileToUser(mkProfile({ role: "admin" }));
     expect(user).not.toHaveProperty("role");
     expect(user).not.toHaveProperty("updated_at");
+  });
+
+  it("falls back when display_name is null", () => {
+    const user = profileToUser(
+      mkProfile({ display_name: null as unknown as string }),
+    );
+    expect(user.display_name).toBe(DISPLAY_NAME_FALLBACK);
+  });
+
+  it("falls back when display_name is empty string", () => {
+    const user = profileToUser(mkProfile({ display_name: "" }));
+    expect(user.display_name).toBe(DISPLAY_NAME_FALLBACK);
   });
 });

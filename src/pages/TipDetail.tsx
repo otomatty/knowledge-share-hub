@@ -64,8 +64,10 @@ export default function TipDetail() {
 
   const authorName = tip.is_anonymous
     ? "名無しエンジニア"
-    : tip.author.display_name;
-  const authorInitial = tip.is_anonymous ? "匿" : (tip.author.display_name[0] ?? "?");
+    : (tip.author?.display_name ?? "ユーザー");
+  const authorInitial = tip.is_anonymous
+    ? "匿"
+    : (tip.author?.display_name?.[0]?.toUpperCase() ?? "?");
   const timeAgo = formatDistanceToNow(new Date(tip.created_at), {
     locale: ja,
     addSuffix: true,
@@ -196,10 +198,10 @@ export default function TipDetail() {
               const maskIdentity = resultTip?.is_anonymous === true;
               const displayName = maskIdentity
                 ? "名無しエンジニア"
-                : user.display_name;
+                : (user.display_name ?? "ユーザー");
               const initial = maskIdentity
                 ? "匿"
-                : (user.display_name[0] ?? "?");
+                : (user.display_name?.[0]?.toUpperCase() ?? "?");
               const identity = (
                 <>
                   <Avatar className="h-7 w-7">

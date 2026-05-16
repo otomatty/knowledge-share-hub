@@ -81,11 +81,11 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2">
                             <Avatar className="h-7 w-7">
                               <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                {user.display_name[0]}
+                                {user.display_name?.[0]?.toUpperCase() ?? "?"}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium">{user.display_name}</p>
+                              <p className="font-medium">{user.display_name ?? "ユーザー"}</p>
                               <p className="text-xs text-muted-foreground">
                                 @{user.username}
                               </p>

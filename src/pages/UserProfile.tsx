@@ -75,7 +75,7 @@ export default function UserProfile() {
           <div className="flex items-start gap-4">
             <Avatar className="h-16 w-16">
               <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                {user.display_name[0] ?? "?"}
+                {user.display_name?.[0]?.toUpperCase() ?? "?"}
               </AvatarFallback>
             </Avatar>
             <div>

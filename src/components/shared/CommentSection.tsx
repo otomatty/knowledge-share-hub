@@ -39,10 +39,10 @@ function CommentItem({
       <div className="flex items-center gap-2 mb-2">
         <Avatar className="h-7 w-7">
           <AvatarFallback className="bg-primary/10 text-primary text-xs">
-            {comment.author.display_name[0]}
+            {comment.author?.display_name?.[0]?.toUpperCase() ?? "?"}
           </AvatarFallback>
         </Avatar>
-        <span className="text-sm font-medium">{comment.author.display_name}</span>
+        <span className="text-sm font-medium">{comment.author?.display_name ?? "ユーザー"}</span>
         <span className="text-xs text-muted-foreground">
           {formatDistanceToNow(new Date(comment.created_at), {
             locale: ja,

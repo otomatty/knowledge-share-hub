@@ -91,7 +91,7 @@ export default function ProfileSettings() {
             <div className="relative">
               <Avatar className="h-20 w-20">
                 <AvatarFallback className="bg-primary/10 text-primary text-2xl">
-                  {form.display_name[0]}
+                  {form.display_name?.[0]?.toUpperCase() ?? "?"}
                 </AvatarFallback>
               </Avatar>
               <button
