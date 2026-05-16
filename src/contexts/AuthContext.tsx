@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
 } from "react";
@@ -30,14 +31,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  // Monotonic counter used to discard stale profile fetches. `getSession` and
+  // `onAuthStateChange` can both kick off a fetch concurrently, and the later
+  // user transition must always win even if its network response lands first.
+  const profileFetchGenerationRef = useRef(0);
 
   const fetchProfile = useCallback(async (userId: string) => {
+    const gen = ++profileFetchGenerationRef.current;
     const { data } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .single();
-    setProfile(data);
+    if (gen !== profileFetchGenerationRef.current) return;
+    setProfile(data ?? null);
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -64,6 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s?.user) {
         fetchProfile(s.user.id);
       } else {
+        // Bump the generation so any in-flight fetch from a prior session
+        // doesn't resurrect the old user's profile after sign-out.
+        profileFetchGenerationRef.current++;
         setProfile(null);
       }
       setLoading(false);

@@ -178,3 +178,144 @@ describe("AuthProvider — auth methods", () => {
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("AuthProvider — profile fetch race conditions (issue #38)", () => {
+  type AuthCallback = (event: string, session: unknown) => void;
+
+  function profileRow(overrides: { id: string; username: string }) {
+    return {
+      id: overrides.id,
+      email: `${overrides.username}@example.com`,
+      username: overrides.username,
+      display_name: overrides.username,
+      avatar_url: null,
+      current_project: null,
+      bio: null,
+      skill_tags: [],
+      role: "user",
+      created_at: "2026-05-01T00:00:00.000Z",
+      updated_at: "2026-05-01T00:00:00.000Z",
+    };
+  }
+
+  function captureAuthCallback() {
+    const ref: { current: AuthCallback | undefined } = { current: undefined };
+    supabase.auth.onAuthStateChange.mockImplementationOnce(
+      (cb: AuthCallback) => {
+        ref.current = cb;
+        return { data: { subscription: { unsubscribe: vi.fn() } } };
+      },
+    );
+    return ref;
+  }
+
+  function pendingProfileChainable<T>() {
+    // Build a chainable whose `single()` never resolves until the test
+    // explicitly calls `resolve`. This lets us model a slow profile fetch
+    // (e.g. the one kicked off by getSession) finishing after a newer
+    // auth transition has already arrived.
+    const chain = chainable<T>();
+    let resolveFn!: (
+      value:
+        | { data: T | null; error: null }
+        | { data: null; error: { message: string } },
+    ) => void;
+    chain.single = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveFn = resolve;
+        }),
+    );
+    return { chain, resolve: (v: Parameters<typeof resolveFn>[0]) => resolveFn(v) };
+  }
+
+  it("does not let a stale getSession profile fetch overwrite a later sign-in", async () => {
+    // getSession resolves with user-1 first.
+    supabase.auth.getSession.mockResolvedValueOnce({
+      data: {
+        session: {
+          user: { id: "user-1", email: "tanaka@example.com" },
+          access_token: "x",
+        },
+      },
+      error: null,
+    });
+
+    const cbRef = captureAuthCallback();
+
+    // First from("profiles") call (driven by getSession) hangs; the second
+    // (driven by the onAuthStateChange we'll fire below) returns user-2
+    // immediately.
+    const slow = pendingProfileChainable<ReturnType<typeof profileRow>>();
+    supabase.from
+      .mockImplementationOnce(() => slow.chain)
+      .mockImplementationOnce(() =>
+        chainable({
+          data: profileRow({ id: "user-2", username: "yamada" }),
+          error: null,
+        }),
+      );
+
+    const { result } = await renderAuth();
+    await waitFor(() => expect(cbRef.current).toBeDefined());
+
+    // A new user signs in before the user-1 profile fetch resolves.
+    await act(async () => {
+      cbRef.current!("SIGNED_IN", {
+        user: { id: "user-2", email: "yamada@example.com" },
+        access_token: "y",
+      });
+    });
+
+    await waitFor(() => expect(result.current.profile?.id).toBe("user-2"));
+
+    // Now the stale user-1 fetch finally lands — it must be discarded.
+    await act(async () => {
+      slow.resolve({
+        data: profileRow({ id: "user-1", username: "tanaka" }),
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(result.current.profile?.id).toBe("user-2");
+    expect(result.current.profile?.username).toBe("yamada");
+  });
+
+  it("keeps profile null after sign-out even if a prior fetch resolves later", async () => {
+    supabase.auth.getSession.mockResolvedValueOnce({
+      data: {
+        session: {
+          user: { id: "user-1", email: "tanaka@example.com" },
+          access_token: "x",
+        },
+      },
+      error: null,
+    });
+
+    const cbRef = captureAuthCallback();
+    const slow = pendingProfileChainable<ReturnType<typeof profileRow>>();
+    supabase.from.mockImplementationOnce(() => slow.chain);
+
+    const { result } = await renderAuth();
+    await waitFor(() => expect(cbRef.current).toBeDefined());
+
+    // User signs out before the in-flight profile fetch resolves.
+    await act(async () => {
+      cbRef.current!("SIGNED_OUT", null);
+    });
+    expect(result.current.profile).toBeNull();
+    expect(result.current.user).toBeNull();
+
+    // The stale fetch finally resolves — must not resurrect the old profile.
+    await act(async () => {
+      slow.resolve({
+        data: profileRow({ id: "user-1", username: "tanaka" }),
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(result.current.profile).toBeNull();
+  });
+});
