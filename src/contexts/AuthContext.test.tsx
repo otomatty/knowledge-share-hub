@@ -282,12 +282,10 @@ describe("AuthProvider — profile fetch race conditions (issue #38)", () => {
     expect(result.current.profile?.username).toBe("yamada");
   });
 
-  it("discards an onAuthStateChange-driven fetch when getSession lands last with no session", async () => {
-    // onAuthStateChange fires synchronously when the listener registers (the
-    // initial INITIAL_SESSION event). We make getSession resolve *after* that
-    // — and with no session — to model the race gemini-code-assist flagged:
-    // the in-flight fetchProfile from onAuthStateChange must not paint the
-    // old user's profile onto a now-signed-out state.
+  it("ignores a stale getSession result that arrives after a newer onAuthStateChange", async () => {
+    // Models the rollback race: a pending getSession finally resolves with
+    // an old session AFTER a newer onAuthStateChange event has updated
+    // state. user/session must not regress to the stale value.
     let resolveGetSession!: (value: {
       data: { session: unknown };
       error: null;
@@ -299,40 +297,35 @@ describe("AuthProvider — profile fetch race conditions (issue #38)", () => {
     );
 
     const cbRef = captureAuthCallback();
-    const slow = pendingProfileChainable<ReturnType<typeof profileRow>>();
-    supabase.from.mockImplementationOnce(() => slow.chain);
 
     const { result } = await renderAuth({ settle: false });
     await waitFor(() => expect(cbRef.current).toBeDefined());
 
-    // Step 1: onAuthStateChange fires SIGNED_IN with user-1 — fetchProfile
-    // starts but its response is still pending.
+    // Newer auth event lands first: SIGNED_OUT.
     await act(async () => {
-      cbRef.current!("SIGNED_IN", {
-        user: { id: "user-1", email: "tanaka@example.com" },
-        access_token: "x",
-      });
+      cbRef.current!("SIGNED_OUT", null);
     });
-
-    // Step 2: getSession finally resolves with no session.
-    await act(async () => {
-      resolveGetSession({ data: { session: null }, error: null });
-      await Promise.resolve();
-    });
-
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.user).toBeNull();
-    expect(result.current.profile).toBeNull();
+    expect(result.current.session).toBeNull();
 
-    // Step 3: the user-1 fetch finally lands — must not resurrect profile.
+    // The stale getSession now resolves with the OLD session — must be
+    // discarded; user/session/profile must not roll back.
     await act(async () => {
-      slow.resolve({
-        data: profileRow({ id: "user-1", username: "tanaka" }),
+      resolveGetSession({
+        data: {
+          session: {
+            user: { id: "user-1", email: "tanaka@example.com" },
+            access_token: "x",
+          },
+        },
         error: null,
       });
       await Promise.resolve();
     });
 
     expect(result.current.user).toBeNull();
+    expect(result.current.session).toBeNull();
     expect(result.current.profile).toBeNull();
   });
 
