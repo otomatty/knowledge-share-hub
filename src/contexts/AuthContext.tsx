@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
 } from "react";
@@ -30,6 +31,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  // Tracks the user id the rest of the app currently sees. fetchProfile
+  // captures the userId it was launched for and bails out if a different
+  // user (or sign-out) has happened in the meantime — so a slow response
+  // can't paint a stale user's profile onto a newer session. Keyed by user
+  // (not call order) so two concurrent fetches for the *same* user can both
+  // write through and let the last successful one win.
+  const activeUserIdRef = useRef<string | null>(null);
+  // Bumped on every onAuthStateChange tick. getSession captures the value
+  // before its promise resolves and discards itself if a newer auth event
+  // has already updated state — otherwise a slow getSession could roll
+  // user/session back to an older value.
+  const authChangeGenerationRef = useRef(0);
 
   const fetchProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
@@ -37,7 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("*")
       .eq("id", userId)
       .single();
-    setProfile(data);
+    if (activeUserIdRef.current !== userId) return;
+    setProfile(data ?? null);
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -47,11 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, fetchProfile]);
 
   useEffect(() => {
+    const getSessionGen = authChangeGenerationRef.current;
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      if (getSessionGen !== authChangeGenerationRef.current) return;
       setSession(s);
       setUser(s?.user ?? null);
+      activeUserIdRef.current = s?.user?.id ?? null;
       if (s?.user) {
         fetchProfile(s.user.id);
+      } else {
+        setProfile(null);
       }
       setLoading(false);
     });
@@ -59,8 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
+      authChangeGenerationRef.current++;
       setSession(s);
       setUser(s?.user ?? null);
+      activeUserIdRef.current = s?.user?.id ?? null;
       if (s?.user) {
         fetchProfile(s.user.id);
       } else {
