@@ -9,10 +9,7 @@ type ProfileRow = Database["knowledge_share_hub"]["Tables"]["profiles"]["Row"];
 export const DISPLAY_NAME_FALLBACK = "ユーザー";
 
 export function profileToUser(row: ProfileRow): User {
-  const displayName =
-    row.display_name && row.display_name.length > 0
-      ? row.display_name
-      : DISPLAY_NAME_FALLBACK;
+  const displayName = row.display_name?.trim() || DISPLAY_NAME_FALLBACK;
   return {
     id: row.id,
     email: row.email,

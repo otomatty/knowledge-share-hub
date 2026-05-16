@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ReactionButtons } from './ReactionButtons';
 import { TagBadgeLink } from './TagBadgeLink';
 import { sortTagsByCategory } from '@/lib/tag-utils';
+import { DISPLAY_NAME_FALLBACK } from '@/lib/profile-mapper';
 import type { Tip } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -15,7 +16,7 @@ interface ContentCardProps {
 export function ContentCard({ data }: ContentCardProps) {
   const authorName = data.is_anonymous
     ? '名無しエンジニア'
-    : (data.author?.display_name ?? 'ユーザー');
+    : (data.author?.display_name ?? DISPLAY_NAME_FALLBACK);
   const authorInitial = data.is_anonymous
     ? '匿'
     : (data.author?.display_name?.[0]?.toUpperCase() ?? '?');

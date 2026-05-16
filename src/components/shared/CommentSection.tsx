@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCommentsThread } from "@/hooks/use-domain-queries";
 import { useCreateComment } from "@/hooks/use-supabase-query";
 import { sanitizeCommentHtml, hasRenderableSanitizedHtml } from "@/lib/sanitize";
+import { DISPLAY_NAME_FALLBACK } from "@/lib/profile-mapper";
 import type { Comment } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -42,7 +43,7 @@ function CommentItem({
             {comment.author?.display_name?.[0]?.toUpperCase() ?? "?"}
           </AvatarFallback>
         </Avatar>
-        <span className="text-sm font-medium">{comment.author?.display_name ?? "ユーザー"}</span>
+        <span className="text-sm font-medium">{comment.author?.display_name ?? DISPLAY_NAME_FALLBACK}</span>
         <span className="text-xs text-muted-foreground">
           {formatDistanceToNow(new Date(comment.created_at), {
             locale: ja,
@@ -174,7 +175,7 @@ export function CommentSection({ contentType, contentId }: CommentSectionProps) 
             </AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium">
-            {profile?.display_name ?? "ユーザー"}
+            {profile?.display_name ?? DISPLAY_NAME_FALLBACK}
           </span>
         </div>
         <TiptapEditor

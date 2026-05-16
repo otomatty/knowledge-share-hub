@@ -73,4 +73,9 @@ describe("profileToUser", () => {
     const user = profileToUser(mkProfile({ display_name: "" }));
     expect(user.display_name).toBe(DISPLAY_NAME_FALLBACK);
   });
+
+  it("falls back when display_name is whitespace-only", () => {
+    const user = profileToUser(mkProfile({ display_name: "   " }));
+    expect(user.display_name).toBe(DISPLAY_NAME_FALLBACK);
+  });
 });
