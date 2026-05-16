@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/lib/supabase";
+import { DISPLAY_NAME_FALLBACK } from "@/lib/profile-mapper";
 import { Shield, Users, Hash } from "lucide-react";
 import { useState } from "react";
 
@@ -81,11 +82,11 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2">
                             <Avatar className="h-7 w-7">
                               <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                {user.display_name[0]}
+                                {user.display_name?.[0]?.toUpperCase() ?? "?"}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium">{user.display_name}</p>
+                              <p className="font-medium">{user.display_name ?? DISPLAY_NAME_FALLBACK}</p>
                               <p className="text-xs text-muted-foreground">
                                 @{user.username}
                               </p>
