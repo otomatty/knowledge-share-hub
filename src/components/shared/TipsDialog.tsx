@@ -90,10 +90,24 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
           const { data: created, error: createErr } = await supabase
             .from("tags")
             .insert({ name, category: "tech" })
-            .select()
+            .select("id")
             .single();
-          if (createErr) throw createErr;
-          tagId = created?.id;
+          if (createErr) {
+            // Race: another session may have created the same tag
+            // between our useTags() snapshot and this insert. Fall
+            // back to fetching the existing row before giving up so
+            // the user's tip still gets the tag linked.
+            const { data: existing } = await supabase
+              .from("tags")
+              .select("id")
+              .eq("category", "tech")
+              .ilike("name", name)
+              .maybeSingle();
+            if (!existing?.id) throw createErr;
+            tagId = existing.id;
+          } else {
+            tagId = created?.id;
+          }
         }
         if (!tagId) throw new Error(`Tag id missing for ${name}`);
         const { error: linkErr } = await supabase.from("tip_tags").insert({

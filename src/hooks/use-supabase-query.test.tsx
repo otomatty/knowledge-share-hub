@@ -166,6 +166,91 @@ describe("useToggleReaction", () => {
       }),
     ).rejects.toMatchObject({ message: "fk violation" });
   });
+
+  // Issue #40 acceptance criterion: optimistic update reflected in
+  // the UI immediately, rolled back on failure.
+  it("optimistically increments the cached count on add", async () => {
+    supabase.from
+      .mockImplementationOnce(() => chainable({ data: null, error: null }))
+      .mockImplementationOnce(() => chainable({ data: null, error: null }));
+
+    const { useToggleReaction } = await import("./use-supabase-query");
+    const { wrapper, queryClient } = createQueryWrapper();
+    queryClient.setQueryData(["reactions", "tip", "tip-1"], {
+      same_thought: 2,
+      new_view: 0,
+      try_it: 0,
+      learned: 0,
+    });
+    queryClient.setQueryData(
+      ["user-reactions", "user-1", "tip", "tip-1"],
+      new Set<string>(),
+    );
+
+    const { result } = renderHook(() => useToggleReaction(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({
+        userId: "user-1",
+        contentType: "tip",
+        contentId: "tip-1",
+        reactionType: "same_thought",
+      });
+    });
+
+    expect(queryClient.getQueryData(["reactions", "tip", "tip-1"])).toEqual({
+      same_thought: 3,
+      new_view: 0,
+      try_it: 0,
+      learned: 0,
+    });
+    expect(
+      (queryClient.getQueryData(["user-reactions", "user-1", "tip", "tip-1"]) as Set<string>)
+        .has("same_thought"),
+    ).toBe(true);
+  });
+
+  it("rolls back the optimistic update when the mutation fails", async () => {
+    supabase.from
+      .mockImplementationOnce(() => chainable({ data: null, error: null }))
+      .mockImplementationOnce(() =>
+        chainable({ data: null, error: { message: "rls denied" } }),
+      );
+
+    const { useToggleReaction } = await import("./use-supabase-query");
+    const { wrapper, queryClient } = createQueryWrapper();
+    const initialCounts = {
+      same_thought: 5,
+      new_view: 0,
+      try_it: 0,
+      learned: 0,
+    };
+    const initialUserSet = new Set<string>();
+    queryClient.setQueryData(["reactions", "tip", "tip-1"], initialCounts);
+    queryClient.setQueryData(
+      ["user-reactions", "user-1", "tip", "tip-1"],
+      initialUserSet,
+    );
+
+    const { result } = renderHook(() => useToggleReaction(), { wrapper });
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          userId: "user-1",
+          contentType: "tip",
+          contentId: "tip-1",
+          reactionType: "same_thought",
+        }),
+      ).rejects.toMatchObject({ message: "rls denied" });
+    });
+
+    expect(queryClient.getQueryData(["reactions", "tip", "tip-1"])).toEqual(
+      initialCounts,
+    );
+    expect(
+      (queryClient.getQueryData(["user-reactions", "user-1", "tip", "tip-1"]) as Set<string>)
+        .has("same_thought"),
+    ).toBe(false);
+  });
 });
 
 describe("useCreateComment", () => {
