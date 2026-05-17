@@ -28,3 +28,10 @@ playwright-report
 .vercel
 
 supabase/.temp
+
+# Package managers: this project uses Bun (bun.lock). Reject other lock
+# files so dependency resolution stays consistent between local, CI, and
+# Vercel (vercel.json uses `bun install`).
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

@@ -57,7 +57,8 @@ describe("useToggleReaction", () => {
       content_id: "tip-1",
       reaction_type: "same_thought",
     });
-    // Tip-domain cache is invalidated for tip reactions.
+    // Issue #40: only the specific tip's domain cache is invalidated
+    // (not the whole feed) when a reaction toggles.
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).toContainEqual(["reactions", "tip", "tip-1"]);
     expect(keys).toContainEqual([
@@ -66,7 +67,8 @@ describe("useToggleReaction", () => {
       "tip",
       "tip-1",
     ]);
-    expect(keys).toContainEqual(["tips", "domain"]);
+    expect(keys).toContainEqual(["tips", "domain", "tip-1"]);
+    expect(keys).not.toContainEqual(["tips", "domain"]);
   });
 
   it("deletes the reaction when one already exists", async () => {
@@ -141,6 +143,7 @@ describe("useToggleReaction", () => {
 
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).not.toContainEqual(["tips", "domain"]);
+    expect(keys).not.toContainEqual(["tips", "domain", "c-1"]);
   });
 
   it("throws when the insert errors out", async () => {
@@ -162,6 +165,125 @@ describe("useToggleReaction", () => {
         reactionType: "same_thought",
       }),
     ).rejects.toMatchObject({ message: "fk violation" });
+  });
+
+  // Issue #40 acceptance criterion: optimistic update reflected in
+  // the UI immediately, rolled back on failure.
+  it("optimistically increments the cached count on add", async () => {
+    supabase.from
+      .mockImplementationOnce(() => chainable({ data: null, error: null }))
+      .mockImplementationOnce(() => chainable({ data: null, error: null }));
+
+    const { useToggleReaction } = await import("./use-supabase-query");
+    const { wrapper, queryClient } = createQueryWrapper();
+    queryClient.setQueryData(["reactions", "tip", "tip-1"], {
+      same_thought: 2,
+      new_view: 0,
+      try_it: 0,
+      learned: 0,
+    });
+    queryClient.setQueryData(
+      ["user-reactions", "user-1", "tip", "tip-1"],
+      new Set<string>(),
+    );
+
+    const { result } = renderHook(() => useToggleReaction(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({
+        userId: "user-1",
+        contentType: "tip",
+        contentId: "tip-1",
+        reactionType: "same_thought",
+      });
+    });
+
+    expect(queryClient.getQueryData(["reactions", "tip", "tip-1"])).toEqual({
+      same_thought: 3,
+      new_view: 0,
+      try_it: 0,
+      learned: 0,
+    });
+    expect(
+      (queryClient.getQueryData(["user-reactions", "user-1", "tip", "tip-1"]) as Set<string>)
+        .has("same_thought"),
+    ).toBe(true);
+  });
+
+  it("skips the optimistic count bump when user-reactions cache is unknown", async () => {
+    // Early tap before useUserReactionTypesOnContent has resolved:
+    // we cannot tell whether the toggle is an add or a remove, so the
+    // count must stay put rather than guess +1 (Codex review on PR #57).
+    supabase.from
+      .mockImplementationOnce(() => chainable({ data: null, error: null }))
+      .mockImplementationOnce(() => chainable({ data: null, error: null }));
+
+    const { useToggleReaction } = await import("./use-supabase-query");
+    const { wrapper, queryClient } = createQueryWrapper();
+    const initialCounts = {
+      same_thought: 3,
+      new_view: 0,
+      try_it: 0,
+      learned: 0,
+    };
+    queryClient.setQueryData(["reactions", "tip", "tip-1"], initialCounts);
+    // user-reactions intentionally not seeded.
+
+    const { result } = renderHook(() => useToggleReaction(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({
+        userId: "user-1",
+        contentType: "tip",
+        contentId: "tip-1",
+        reactionType: "same_thought",
+      });
+    });
+
+    expect(queryClient.getQueryData(["reactions", "tip", "tip-1"])).toEqual(
+      initialCounts,
+    );
+  });
+
+  it("rolls back the optimistic update when the mutation fails", async () => {
+    supabase.from
+      .mockImplementationOnce(() => chainable({ data: null, error: null }))
+      .mockImplementationOnce(() =>
+        chainable({ data: null, error: { message: "rls denied" } }),
+      );
+
+    const { useToggleReaction } = await import("./use-supabase-query");
+    const { wrapper, queryClient } = createQueryWrapper();
+    const initialCounts = {
+      same_thought: 5,
+      new_view: 0,
+      try_it: 0,
+      learned: 0,
+    };
+    const initialUserSet = new Set<string>();
+    queryClient.setQueryData(["reactions", "tip", "tip-1"], initialCounts);
+    queryClient.setQueryData(
+      ["user-reactions", "user-1", "tip", "tip-1"],
+      initialUserSet,
+    );
+
+    const { result } = renderHook(() => useToggleReaction(), { wrapper });
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          userId: "user-1",
+          contentType: "tip",
+          contentId: "tip-1",
+          reactionType: "same_thought",
+        }),
+      ).rejects.toMatchObject({ message: "rls denied" });
+    });
+
+    expect(queryClient.getQueryData(["reactions", "tip", "tip-1"])).toEqual(
+      initialCounts,
+    );
+    expect(
+      (queryClient.getQueryData(["user-reactions", "user-1", "tip", "tip-1"]) as Set<string>)
+        .has("same_thought"),
+    ).toBe(false);
   });
 });
 

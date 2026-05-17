@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { emptyReactionSummary } from "@/lib/reaction-aggregates";
 import type { Database } from "@/integrations/supabase/types";
+import type { ReactionSummary, ReactionType } from "@/types";
 
 type Tables = Database["knowledge_share_hub"]["Tables"];
 
@@ -68,20 +69,29 @@ export function useReactionCounts(
   });
 }
 
+type ToggleReactionVariables = {
+  userId: string;
+  contentType: Tables["reactions"]["Row"]["content_type"];
+  contentId: string;
+  reactionType: Tables["reactions"]["Row"]["reaction_type"];
+};
+
+type ToggleReactionContext = {
+  reactionsKey: readonly unknown[];
+  userReactionsKey: readonly unknown[];
+  prevReactions: ReactionSummary | undefined;
+  prevUserReactions: Set<ReactionType> | undefined;
+};
+
 export function useToggleReaction() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutation<void, Error, ToggleReactionVariables, ToggleReactionContext>({
     mutationFn: async ({
       userId,
       contentType,
       contentId,
       reactionType,
-    }: {
-      userId: string;
-      contentType: Tables["reactions"]["Row"]["content_type"];
-      contentId: string;
-      reactionType: Tables["reactions"]["Row"]["reaction_type"];
     }) => {
       const { data: existing } = await supabase
         .from("reactions")
@@ -108,7 +118,86 @@ export function useToggleReaction() {
         if (error) throw error;
       }
     },
-    onSuccess: (_, variables) => {
+    // Issue #40 / PR #57 follow-up: optimistic update + rollback. The
+    // reaction toggle was already narrowed to a single tip's caches,
+    // but the UI still had to wait for the server round-trip before
+    // the count/button state moved. Patch the two per-content caches
+    // — ["reactions", ...] (count summary) and ["user-reactions", ...]
+    // (set of reaction types the user has) — based on whether the
+    // reaction is already in the user's set. On error, restore both
+    // snapshots; on settled, invalidate to reconcile with the server.
+    onMutate: async (variables) => {
+      const reactionsKey = [
+        "reactions",
+        variables.contentType,
+        variables.contentId,
+      ] as const;
+      const userReactionsKey = [
+        "user-reactions",
+        variables.userId,
+        variables.contentType,
+        variables.contentId,
+      ] as const;
+
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: reactionsKey }),
+        queryClient.cancelQueries({ queryKey: userReactionsKey }),
+      ]);
+
+      const prevReactions =
+        queryClient.getQueryData<ReactionSummary>(reactionsKey);
+      const prevUserReactions =
+        queryClient.getQueryData<Set<ReactionType>>(userReactionsKey);
+
+      // Gate the directional update on knowing the user's prior reaction
+      // state. Without prevUserReactions we can't tell add from remove,
+      // so an early-tap (before useUserReactionTypesOnContent resolves)
+      // would optimistically +1 a count that the server is about to -1,
+      // causing a visible 3→4→2 flicker (Codex review on PR #57).
+      if (prevUserReactions !== undefined) {
+        const hadReaction = prevUserReactions.has(
+          variables.reactionType as ReactionType,
+        );
+        const next = new Set(prevUserReactions);
+        if (hadReaction) next.delete(variables.reactionType as ReactionType);
+        else next.add(variables.reactionType as ReactionType);
+        queryClient.setQueryData<Set<ReactionType>>(userReactionsKey, next);
+
+        if (prevReactions !== undefined) {
+          const rt = variables.reactionType as keyof ReactionSummary;
+          const delta = hadReaction ? -1 : 1;
+          queryClient.setQueryData<ReactionSummary>(reactionsKey, {
+            ...prevReactions,
+            [rt]: Math.max(0, prevReactions[rt] + delta),
+          });
+        }
+      }
+
+      return {
+        reactionsKey,
+        userReactionsKey,
+        prevReactions,
+        prevUserReactions,
+      };
+    },
+    onError: (_err, _variables, context) => {
+      if (!context) return;
+      if (context.prevReactions !== undefined) {
+        queryClient.setQueryData(context.reactionsKey, context.prevReactions);
+      }
+      if (context.prevUserReactions !== undefined) {
+        queryClient.setQueryData(
+          context.userReactionsKey,
+          context.prevUserReactions,
+        );
+      }
+    },
+    // Invalidate on settled (success OR error). A network failure after
+    // the server already wrote would otherwise leave the cache stuck on
+    // the rolled-back snapshot until the next natural refetch
+    // (CodeRabbit PR #57).
+    onSettled: (_data, _err, variables) => {
+      if (!variables) return;
       queryClient.invalidateQueries({
         queryKey: ["reactions", variables.contentType, variables.contentId],
       });
@@ -120,19 +209,19 @@ export function useToggleReaction() {
           variables.contentId,
         ],
       });
-      // The tip-domain hooks (`useTipsMapped`, `useTipsByUser`,
-      // `useRecentTopTips`, `useTipsFollowedByTags`, `useTipByIdMapped`)
-      // all embed per-tip reaction summaries via `fetchReactionSummaries`,
-      // so toggling a reaction on a tip leaves their cached payload
-      // out of date. With the project's 5-minute `staleTime`
-      // (src/main.tsx) the ContentCard counts — and, more visibly, the
-      // sidebar ranking from `useRecentTopTips` (issue #14, PR #31
-      // codex review) — would otherwise stay stale until a focus or
-      // remount triggers a refetch. Comment reactions don't feed any
-      // tip-domain cache, so gate on `contentType === "tip"`.
+      // Issue #40: narrow the tip-domain invalidation to the affected
+      // tip only. The previous blanket `["tips", "domain"]` invalidate
+      // refetched every feed (`useTipsMapped`, `useTipsByUser`,
+      // `useRecentTopTips`, `useTipsFollowedByTags`) on every reaction
+      // tap — a multi-hundred-row query storm on a fast tapper. Now
+      // only `useTipByIdMapped` (which keys on tipId) re-runs; feeds
+      // and the sidebar ranking pick up the new count on their next
+      // natural refetch (focus / 5-min staleTime). Acceptable
+      // trade-off: list counts can briefly trail until the next
+      // refresh, but they are still authoritative on hard reload.
       if (variables.contentType === "tip") {
         queryClient.invalidateQueries({
-          queryKey: ["tips", "domain"],
+          queryKey: ["tips", "domain", variables.contentId],
         });
       }
       // A try_it reaction on a tip creates (or leaves untouched) a

@@ -285,47 +285,61 @@ export default function TipNew() {
               <p className="text-sm font-medium">{dailyPrompt}</p>
             </div>
           )}
-          <div className="space-y-2">
-            <Label>
-              {sourceTipId
-                ? "試してどうだった？（最大140文字）"
-                : grownFromTipId
-                  ? "今の視点で、どう育った？（最大140文字）"
-                  : "気づき（最大140文字）"}
-            </Label>
-            <Textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value.slice(0, 140))}
-              placeholder={
-                sourceTipId
-                  ? "実際に試した結果・気づきを書こう"
+          {/*
+            Wrap inputs in a <fieldset disabled> when self-derived or
+            growth-of-other so every field is unfocusable (issue #43).
+            Previously only the submit button was disabled, leaving the
+            form editable and inviting DevTools workarounds. The cancel
+            and submit buttons live outside the fieldset so cancel stays
+            clickable. The DB trigger guard_tip_attempt_no_self stays as
+            a safety net.
+          */}
+          <fieldset
+            disabled={isSelfDerived || isGrowthOfOther}
+            className="space-y-4 disabled:opacity-60"
+          >
+            <div className="space-y-2">
+              <Label>
+                {sourceTipId
+                  ? "試してどうだった？（最大140文字）"
                   : grownFromTipId
-                    ? "1週間前と今で、どう変わった？"
-                    : dailyPrompt
-              }
-              className="resize-none h-24"
-              maxLength={140}
-            />
-            <p className="text-xs text-muted-foreground text-right">
-              {content.length}/140
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>気づきの種類（任意・1つ選択）</Label>
-            <ContextTagPicker value={contextTag} onChange={setContextTag} />
-          </div>
-          <div className="space-y-2">
-            <Label>技術タグ</Label>
-            <TagInput selectedTags={tags} onChange={setTags} />
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="anonymous"
-              checked={isAnonymous}
-              onCheckedChange={setIsAnonymous}
-            />
-            <Label htmlFor="anonymous">匿名で投稿する</Label>
-          </div>
+                    ? "今の視点で、どう育った？（最大140文字）"
+                    : "気づき（最大140文字）"}
+              </Label>
+              <Textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value.slice(0, 140))}
+                placeholder={
+                  sourceTipId
+                    ? "実際に試した結果・気づきを書こう"
+                    : grownFromTipId
+                      ? "1週間前と今で、どう変わった？"
+                      : dailyPrompt
+                }
+                className="resize-none h-24"
+                maxLength={140}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {content.length}/140
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>気づきの種類（任意・1つ選択）</Label>
+              <ContextTagPicker value={contextTag} onChange={setContextTag} />
+            </div>
+            <div className="space-y-2">
+              <Label>技術タグ</Label>
+              <TagInput selectedTags={tags} onChange={setTags} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="anonymous"
+                checked={isAnonymous}
+                onCheckedChange={setIsAnonymous}
+              />
+              <Label htmlFor="anonymous">匿名で投稿する</Label>
+            </div>
+          </fieldset>
           <div className="flex gap-2">
             <Button
               type="submit"
