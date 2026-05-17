@@ -109,6 +109,10 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
     }
 
     queryClient.invalidateQueries({ queryKey: ["tips"] });
+    // New tech tags may have been created above. Invalidate the tags
+    // cache so subsequent tag lookups in the same session see them and
+    // don't retry inserts that would now hit a unique violation.
+    queryClient.invalidateQueries({ queryKey: ["tags"] });
     setContent("");
     setSelectedTags([]);
     setContextTag(null);
