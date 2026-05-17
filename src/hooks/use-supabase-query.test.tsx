@@ -209,6 +209,40 @@ describe("useToggleReaction", () => {
     ).toBe(true);
   });
 
+  it("skips the optimistic count bump when user-reactions cache is unknown", async () => {
+    // Early tap before useUserReactionTypesOnContent has resolved:
+    // we cannot tell whether the toggle is an add or a remove, so the
+    // count must stay put rather than guess +1 (Codex review on PR #57).
+    supabase.from
+      .mockImplementationOnce(() => chainable({ data: null, error: null }))
+      .mockImplementationOnce(() => chainable({ data: null, error: null }));
+
+    const { useToggleReaction } = await import("./use-supabase-query");
+    const { wrapper, queryClient } = createQueryWrapper();
+    const initialCounts = {
+      same_thought: 3,
+      new_view: 0,
+      try_it: 0,
+      learned: 0,
+    };
+    queryClient.setQueryData(["reactions", "tip", "tip-1"], initialCounts);
+    // user-reactions intentionally not seeded.
+
+    const { result } = renderHook(() => useToggleReaction(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({
+        userId: "user-1",
+        contentType: "tip",
+        contentId: "tip-1",
+        reactionType: "same_thought",
+      });
+    });
+
+    expect(queryClient.getQueryData(["reactions", "tip", "tip-1"])).toEqual(
+      initialCounts,
+    );
+  });
+
   it("rolls back the optimistic update when the mutation fails", async () => {
     supabase.from
       .mockImplementationOnce(() => chainable({ data: null, error: null }))

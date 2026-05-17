@@ -149,22 +149,28 @@ export function useToggleReaction() {
       const prevUserReactions =
         queryClient.getQueryData<Set<ReactionType>>(userReactionsKey);
 
-      const hadReaction =
-        prevUserReactions?.has(variables.reactionType as ReactionType) ?? false;
-      const delta = hadReaction ? -1 : 1;
-
-      if (prevReactions) {
-        const rt = variables.reactionType as keyof ReactionSummary;
-        queryClient.setQueryData<ReactionSummary>(reactionsKey, {
-          ...prevReactions,
-          [rt]: Math.max(0, prevReactions[rt] + delta),
-        });
-      }
-      if (prevUserReactions) {
+      // Gate the directional update on knowing the user's prior reaction
+      // state. Without prevUserReactions we can't tell add from remove,
+      // so an early-tap (before useUserReactionTypesOnContent resolves)
+      // would optimistically +1 a count that the server is about to -1,
+      // causing a visible 3→4→2 flicker (Codex review on PR #57).
+      if (prevUserReactions !== undefined) {
+        const hadReaction = prevUserReactions.has(
+          variables.reactionType as ReactionType,
+        );
         const next = new Set(prevUserReactions);
         if (hadReaction) next.delete(variables.reactionType as ReactionType);
         else next.add(variables.reactionType as ReactionType);
         queryClient.setQueryData<Set<ReactionType>>(userReactionsKey, next);
+
+        if (prevReactions !== undefined) {
+          const rt = variables.reactionType as keyof ReactionSummary;
+          const delta = hadReaction ? -1 : 1;
+          queryClient.setQueryData<ReactionSummary>(reactionsKey, {
+            ...prevReactions,
+            [rt]: Math.max(0, prevReactions[rt] + delta),
+          });
+        }
       }
 
       return {
@@ -186,7 +192,12 @@ export function useToggleReaction() {
         );
       }
     },
-    onSuccess: (_, variables) => {
+    // Invalidate on settled (success OR error). A network failure after
+    // the server already wrote would otherwise leave the cache stuck on
+    // the rolled-back snapshot until the next natural refetch
+    // (CodeRabbit PR #57).
+    onSettled: (_data, _err, variables) => {
+      if (!variables) return;
       queryClient.invalidateQueries({
         queryKey: ["reactions", variables.contentType, variables.contentId],
       });

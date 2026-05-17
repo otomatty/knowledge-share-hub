@@ -93,10 +93,12 @@ export function TipsDialog({ open, onOpenChange }: TipsDialogProps) {
             .select("id")
             .single();
           if (createErr) {
-            // Race: another session may have created the same tag
-            // between our useTags() snapshot and this insert. Fall
-            // back to fetching the existing row before giving up so
-            // the user's tip still gets the tag linked.
+            // Only treat unique-violation (Postgres 23505) as a
+            // concurrent-create race and fall back to fetching the
+            // existing row. Permission errors, network blips, etc.
+            // must re-throw so we don't silently link a tag that
+            // wasn't really created (CodeRabbit PR #57).
+            if (createErr.code !== "23505") throw createErr;
             const { data: existing } = await supabase
               .from("tags")
               .select("id")
