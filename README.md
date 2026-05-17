@@ -88,7 +88,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 
 ### 3. データベースのマイグレーション
 
-`supabase/migrations/` 配下に 25 本のマイグレーションがあります。Supabase CLI で適用してください。
+`supabase/migrations/` 配下に 30 本のマイグレーションがあります。Supabase CLI で適用してください。
 
 ```bash
 supabase link --project-ref <your-project-ref>
@@ -139,7 +139,7 @@ src/
 └── test/                   # Vitest セットアップ
 supabase/
 ├── config.toml             # ローカル Supabase（exposed schemas / OAuth リダイレクト）
-└── migrations/             # 00001 〜 00025 のスキーマ進化
+└── migrations/             # 00001 〜 00030 のスキーマ進化
 ```
 
 ## データベース概要
@@ -159,6 +159,43 @@ supabase/
 `pg_cron` ジョブ:
 - `ksh-try-it-followups`（毎日 02:00 UTC）→ `dispatch_try_it_followups()`
 - `ksh-tip-resurfacings`（毎日 02:30 UTC）→ `dispatch_tip_resurfacings()`
+
+### cron 失敗時の確認手順
+
+両 dispatcher は `begin ... exception when others then ...` で例外を捕捉し、成功 / 失敗の両方を `knowledge_share_hub.cron_logs` に記録します（migration `00030`）。失敗時は戻り値 `-1` と `RAISE WARNING` も併発し、Supabase の Logs Explorer から検索できます。
+
+```sql
+-- 最近の失敗を確認
+select id, job_name, ran_at, sqlstate, error_message
+from knowledge_share_hub.cron_logs
+where success = false
+order by ran_at desc
+limit 20;
+
+-- ジョブ別の最終成功時刻（24h 以上空いていたら要調査）
+select job_name, max(ran_at) filter (where success) as last_success
+from knowledge_share_hub.cron_logs
+group by job_name;
+```
+
+`cron_logs` が空（= 関数が一度も呼ばれていない）の場合は cron 起動自体が落ちている可能性があるため、pg_cron の `cron.job_run_details` を補助的に確認します。
+
+```sql
+select jobname, status, return_message, start_time, end_time
+from cron.job_run_details
+where jobname in ('ksh-try-it-followups', 'ksh-tip-resurfacings')
+order by start_time desc
+limit 20;
+```
+
+失敗を確認したら、原因を修正したうえで `service_role` から手動再実行できます。
+
+```sql
+select knowledge_share_hub.dispatch_try_it_followups();
+select knowledge_share_hub.dispatch_tip_resurfacings();
+```
+
+失敗が継続する場合は Supabase Logs（Database / Postgres）で `RAISE WARNING` の詳細とスタックトレースを参照してください。
 
 > 旧スキーマ（`articles` / `books` / `memos`）は `00003` `00004` で除去済み。アプリは Tip 中心に再設計されています（コミット `887e683`）。
 
