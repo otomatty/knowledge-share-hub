@@ -139,7 +139,7 @@ src/
 └── test/                   # Vitest セットアップ
 supabase/
 ├── config.toml             # ローカル Supabase（exposed schemas / OAuth リダイレクト）
-└── migrations/             # 00001 〜 00025 のスキーマ進化
+└── migrations/             # 00001 〜 00030 のスキーマ進化
 ```
 
 ## データベース概要

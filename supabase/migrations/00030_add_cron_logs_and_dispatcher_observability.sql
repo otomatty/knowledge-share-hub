@@ -35,6 +35,10 @@ alter table knowledge_share_hub.cron_logs enable row level security;
 --   profiles.role='admin' を判定するポリシーを追加する。
 
 revoke all on knowledge_share_hub.cron_logs from public, anon, authenticated;
+-- Default privileges in 00001 already grant `all on tables` to service_role,
+-- but the explicit grant mirrors the dispatcher's `grant execute` style and
+-- keeps the migration self-documenting.
+grant select on knowledge_share_hub.cron_logs to service_role;
 
 -- 2. dispatch_try_it_followups() を例外捕捉版に差し替え
 create or replace function knowledge_share_hub.dispatch_try_it_followups()
@@ -135,8 +139,11 @@ begin
           and r.tip_id = t.id
           and r.interval_days = 7
       )
+    -- Intentionally no `limit` here. Migration 00024 removed the
+    -- earlier `limit 200` because backlog rows could age past the
+    -- 60-day floor before the next run claimed them. Keep the cap
+    -- absent so this redefinition does not regress that fix.
     order by t.created_at asc
-    limit 200
   ),
   claimed as (
     insert into knowledge_share_hub.tip_resurfacings
