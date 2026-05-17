@@ -40,7 +40,16 @@ revoke all on knowledge_share_hub.cron_logs from public, anon, authenticated;
 -- keeps the migration self-documenting.
 grant select on knowledge_share_hub.cron_logs to service_role;
 
--- 2. dispatch_try_it_followups() を例外捕捉版に差し替え
+-- 2. dispatch_try_it_followups() を例外捕捉版に差し替え。
+-- 関数本体は 00020 の "claim first, notify from claimed set" パターン
+-- (00011 で導入された `for update skip locked` による並行排他、00020 で
+-- 追加された `knowledge_share_hub.dispatching` フラグの set_config) を
+-- そのまま踏襲し、その外側を `begin ... exception when others ...` で
+-- 包んで観測ログを取る。
+--
+-- 00020 の BEFORE トリガが `follow_up_notified_at` の更新時に
+-- `knowledge_share_hub.dispatching = 'on'` を要求するため、フラグの
+-- set_config を忘れると毎回 check_violation で失敗する。
 create or replace function knowledge_share_hub.dispatch_try_it_followups()
 returns integer
 language plpgsql
@@ -50,40 +59,45 @@ as $$
 declare
   v_count integer;
 begin
+  -- 00020: BEFORE トリガが参照するトランザクションスコープのフラグ。
+  -- これがないと follow_up_notified_at の UPDATE が check_violation で
+  -- 失敗し、例外パスに落ちて 1 通も通知が出ないまま終わる。
+  perform set_config('knowledge_share_hub.dispatching', 'on', true);
+
+  -- 00011: 「先に claim → claimed から notify」パターン。`for update
+  -- skip locked` で並行する dispatcher 同士が同じ pending を観測しない。
   with due as (
-    select
-      a.id,
-      a.source_tip_id,
-      a.user_id,
-      t.content
+    select a.id
     from knowledge_share_hub.tip_attempts a
-    join knowledge_share_hub.tips t on t.id = a.source_tip_id
     where a.pledged_at < now() - interval '3 days'
       and a.result_tip_id is null
+      and a.completed_at is null
       and a.follow_up_notified_at is null
+    for update skip locked
+  ),
+  claimed as (
+    update knowledge_share_hub.tip_attempts a
+    set follow_up_notified_at = now()
+    from due
+    where a.id = due.id
+    returning a.id, a.source_tip_id, a.user_id
   ),
   ins as (
     insert into knowledge_share_hub.notifications
       (user_id, type, content_type, content_id, actor_id, is_read, message)
     select
-      d.user_id,
+      c.user_id,
       'try_it_followup',
       'tip',
-      d.source_tip_id,
-      d.user_id,
+      c.source_tip_id,
+      c.user_id,
       false,
       'あの気づき、試してみた？「'
-        || left(d.content, 30)
-        || case when length(d.content) > 30 then '…' else '' end
+        || left(t.content, 30)
+        || case when length(t.content) > 30 then '…' else '' end
         || '」の結果を投稿してみよう'
-    from due d
-    returning 1
-  ),
-  upd as (
-    update knowledge_share_hub.tip_attempts a
-    set follow_up_notified_at = now()
-    from due d
-    where a.id = d.id
+    from claimed c
+    join knowledge_share_hub.tips t on t.id = c.source_tip_id
     returning 1
   )
   select count(*) into v_count from ins;
